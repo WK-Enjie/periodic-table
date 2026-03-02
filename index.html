@@ -1,12 +1,282 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Periodic Table Explorer – Chemistry Made Easy</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Periodic Table Explorer – Chemistry Made Easy</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    header {
+      text-align: center;
+      padding: 18px 10px 8px;
+      background: linear-gradient(135deg, #1a1d2e, #0f1117);
+      border-bottom: 1px solid #2a2d3e;
+    }
+    header h1 { font-size: 1.5rem; color: #7eb8ff; letter-spacing: 1px; }
+    header p { font-size: 0.85rem; color: #888; margin-top: 4px; }
+
+    /* Search */
+    .search-bar {
+      display: flex; justify-content: center; padding: 12px;
+    }
+    .search-bar input {
+      width: 320px; padding: 9px 14px; border-radius: 8px;
+      border: 1px solid #333; background: #1a1d2e; color: #e0e0e0;
+      font-size: 0.95rem; outline: none; transition: border .2s;
+    }
+    .search-bar input:focus { border-color: #7eb8ff; }
+
+    /* Legend */
+    .legend {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: 8px; padding: 4px 10px 10px; font-size: 0.72rem;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .legend-color {
+      width: 14px; height: 14px; border-radius: 3px;
+    }
+
+    /* Table grid */
+    .table-wrap {
+      overflow-x: auto; padding: 0 10px 10px;
+    }
+    .ptable {
+      display: grid;
+      grid-template-columns: repeat(18, minmax(52px, 1fr));
+      gap: 3px;
+      min-width: 960px;
+      margin: 0 auto;
+      max-width: 1200px;
+    }
+
+    /* Element cell */
+    .el-cell {
+      position: relative;
+      border-radius: 6px;
+      padding: 4px 3px 3px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+      border: 1px solid rgba(255,255,255,.06);
+      min-height: 58px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .el-cell:hover {
+      transform: scale(1.18);
+      box-shadow: 0 0 12px rgba(126,184,255,.4);
+      z-index: 10;
+    }
+    .el-cell.dimmed { opacity: 0.18; pointer-events: none; }
+    .el-num { font-size: 0.55rem; color: rgba(255,255,255,.7); }
+    .el-sym { font-size: 1.05rem; font-weight: 700; line-height: 1.1; }
+    .el-name { font-size: 0.45rem; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .el-mass { font-size: 0.45rem; opacity: .6; }
+
+    /* Separator label */
+    .sep-label {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 0.7rem;
+      color: #666;
+      padding: 6px 0 2px;
+    }
+
+    /* Modal */
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; animation: fadeIn .2s;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal {
+      background: #1a1d2e; border-radius: 14px;
+      padding: 28px 32px; max-width: 420px; width: 90%;
+      box-shadow: 0 8px 40px rgba(0,0,0,.6);
+      position: relative;
+    }
+    .modal-close {
+      position: absolute; top: 10px; right: 14px;
+      background: none; border: none; color: #888;
+      font-size: 1.5rem; cursor: pointer;
+    }
+    .modal-close:hover { color: #fff; }
+    .modal-sym {
+      font-size: 3rem; font-weight: 800; line-height: 1;
+    }
+    .modal-name { font-size: 1.3rem; font-weight: 600; color: #ccc; }
+    .modal-num { font-size: 0.9rem; color: #888; margin-bottom: 14px; }
+    .modal-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px 16px; margin-top: 10px; font-size: 0.85rem;
+    }
+    .modal-grid dt { color: #888; }
+    .modal-grid dd { color: #ddd; font-weight: 500; }
+    .modal-cat-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 600; margin-top: 6px;
+    }
+
+    /* Category colors */
+    .cat-nonmetal        { background: #2a6e4e; color: #b8ffd8; }
+    .cat-noble-gas       { background: #5b3a7a; color: #dbb8ff; }
+    .cat-alkali-metal    { background: #8c3a3a; color: #ffc4c4; }
+    .cat-alkaline-earth  { background: #8c6e2a; color: #ffe8a0; }
+    .cat-metalloid       { background: #2a6e6e; color: #a0f0f0; }
+    .cat-halogen         { background: #2a4e8c; color: #a8d0ff; }
+    .cat-transition      { background: #3a5c8c; color: #b0d4ff; }
+    .cat-post-transition { background: #4a6a5a; color: #b8e8c8; }
+    .cat-lanthanide      { background: #6e5a2a; color: #ffe0a0; }
+    .cat-actinide        { background: #6e3a4a; color: #ffb8c8; }
+    .cat-unknown         { background: #444; color: #ccc; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    /* ── Element Data (all 118) ── */
+    const ELEMENTS = [
+      {z:1,sym:"H",name:"Hydrogen",mass:"1.008",cat:"nonmetal",phase:"Gas",econfig:"1s¹",row:1,col:1},
+      {z:2,sym:"He",name:"Helium",mass:"4.003",cat:"noble-gas",phase:"Gas",econfig:"1s²",row:1,col:18},
+      {z:3,sym:"Li",name:"Lithium",mass:"6.941",cat:"alkali-metal",phase:"Solid",econfig:"[He] 2s¹",row:2,col:1},
+      {z:4,sym:"Be",name:"Beryllium",mass:"9.012",cat:"alkaline-earth",phase:"Solid",econfig:"[He] 2s²",row:2,col:2},
+      {z:5,sym:"B",name:"Boron",mass:"10.81",cat:"metalloid",phase:"Solid",econfig:"[He] 2s² 2p¹",row:2,col:13},
+      {z:6,sym:"C",name:"Carbon",mass:"12.01",cat:"nonmetal",phase:"Solid",econfig:"[He] 2s² 2p²",row:2,col:14},
+      {z:7,sym:"N",name:"Nitrogen",mass:"14.01",cat:"nonmetal",phase:"Gas",econfig:"[He] 2s² 2p³",row:2,col:15},
+      {z:8,sym:"O",name:"Oxygen",mass:"16.00",cat:"nonmetal",phase:"Gas",econfig:"[He] 2s² 2p⁴",row:2,col:16},
+      {z:9,sym:"F",name:"Fluorine",mass:"19.00",cat:"halogen",phase:"Gas",econfig:"[He] 2s² 2p⁵",row:2,col:17},
+      {z:10,sym:"Ne",name:"Neon",mass:"20.18",cat:"noble-gas",phase:"Gas",econfig:"[He] 2s² 2p⁶",row:2,col:18},
+      {z:11,sym:"Na",name:"Sodium",mass:"22.99",cat:"alkali-metal",phase:"Solid",econfig:"[Ne] 3s¹",row:3,col:1},
+      {z:12,sym:"Mg",name:"Magnesium",mass:"24.31",cat:"alkaline-earth",phase:"Solid",econfig:"[Ne] 3s²",row:3,col:2},
+      {z:13,sym:"Al",name:"Aluminium",mass:"26.98",cat:"post-transition",phase:"Solid",econfig:"[Ne] 3s² 3p¹",row:3,col:13},
+      {z:14,sym:"Si",name:"Silicon",mass:"28.09",cat:"metalloid",phase:"Solid",econfig:"[Ne] 3s² 3p²",row:3,col:14},
+      {z:15,sym:"P",name:"Phosphorus",mass:"30.97",cat:"nonmetal",phase:"Solid",econfig:"[Ne] 3s² 3p³",row:3,col:15},
+      {z:16,sym:"S",name:"Sulfur",mass:"32.07",cat:"nonmetal",phase:"Solid",econfig:"[Ne] 3s² 3p⁴",row:3,col:16},
+      {z:17,sym:"Cl",name:"Chlorine",mass:"35.45",cat:"halogen",phase:"Gas",econfig:"[Ne] 3s² 3p⁵",row:3,col:17},
+      {z:18,sym:"Ar",name:"Argon",mass:"39.95",cat:"noble-gas",phase:"Gas",econfig:"[Ne] 3s² 3p⁶",row:3,col:18},
+      {z:19,sym:"K",name:"Potassium",mass:"39.10",cat:"alkali-metal",phase:"Solid",econfig:"[Ar] 4s¹",row:4,col:1},
+      {z:20,sym:"Ca",name:"Calcium",mass:"40.08",cat:"alkaline-earth",phase:"Solid",econfig:"[Ar] 4s²",row:4,col:2},
+      {z:21,sym:"Sc",name:"Scandium",mass:"44.96",cat:"transition",phase:"Solid",econfig:"[Ar] 3d¹ 4s²",row:4,col:3},
+      {z:22,sym:"Ti",name:"Titanium",mass:"47.87",cat:"transition",phase:"Solid",econfig:"[Ar] 3d² 4s²",row:4,col:4},
+      {z:23,sym:"V",name:"Vanadium",mass:"50.94",cat:"transition",phase:"Solid",econfig:"[Ar] 3d³ 4s²",row:4,col:5},
+      {z:24,sym:"Cr",name:"Chromium",mass:"52.00",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁵ 4s¹",row:4,col:6},
+      {z:25,sym:"Mn",name:"Manganese",mass:"54.94",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁵ 4s²",row:4,col:7},
+      {z:26,sym:"Fe",name:"Iron",mass:"55.85",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁶ 4s²",row:4,col:8},
+      {z:27,sym:"Co",name:"Cobalt",mass:"58.93",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁷ 4s²",row:4,col:9},
+      {z:28,sym:"Ni",name:"Nickel",mass:"58.69",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁸ 4s²",row:4,col:10},
+      {z:29,sym:"Cu",name:"Copper",mass:"63.55",cat:"transition",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s¹",row:4,col:11},
+      {z:30,sym:"Zn",name:"Zinc",mass:"65.38",cat:"transition",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s²",row:4,col:12},
+      {z:31,sym:"Ga",name:"Gallium",mass:"69.72",cat:"post-transition",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p¹",row:4,col:13},
+      {z:32,sym:"Ge",name:"Germanium",mass:"72.63",cat:"metalloid",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p²",row:4,col:14},
+      {z:33,sym:"As",name:"Arsenic",mass:"74.92",cat:"metalloid",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p³",row:4,col:15},
+      {z:34,sym:"Se",name:"Selenium",mass:"78.97",cat:"nonmetal",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p⁴",row:4,col:16},
+      {z:35,sym:"Br",name:"Bromine",mass:"79.90",cat:"halogen",phase:"Liquid",econfig:"[Ar] 3d¹⁰ 4s² 4p⁵",row:4,col:17},
+      {z:36,sym:"Kr",name:"Krypton",mass:"83.80",cat:"noble-gas",phase:"Gas",econfig:"[Ar] 3d¹⁰ 4s² 4p⁶",row:4,col:18},
+      {z:37,sym:"Rb",name:"Rubidium",mass:"85.47",cat:"alkali-metal",phase:"Solid",econfig:"[Kr] 5s¹",row:5,col:1},
+      {z:38,sym:"Sr",name:"Strontium",mass:"87.62",cat:"alkaline-earth",phase:"Solid",econfig:"[Kr] 5s²",row:5,col:2},
+      {z:39,sym:"Y",name:"Yttrium",mass:"88.91",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹ 5s²",row:5,col:3},
+      {z:40,sym:"Zr",name:"Zirconium",mass:"91.22",cat:"transition",phase:"Solid",econfig:"[Kr] 4d² 5s²",row:5,col:4},
+      {z:41,sym:"Nb",name:"Niobium",mass:"92.91",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁴ 5s¹",row:5,col:5},
+      {z:42,sym:"Mo",name:"Molybdenum",mass:"95.95",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁵ 5s¹",row:5,col:6},
+      {z:43,sym:"Tc",name:"Technetium",mass:"(98)",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁵ 5s²",row:5,col:7},
+      {z:44,sym:"Ru",name:"Ruthenium",mass:"101.1",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁷ 5s¹",row:5,col:8},
+      {z:45,sym:"Rh",name:"Rhodium",mass:"102.9",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁸ 5s¹",row:5,col:9},
+      {z:46,sym:"Pd",name:"Palladium",mass:"106.4",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹⁰",row:5,col:10},
+      {z:47,sym:"Ag",name:"Silver",mass:"107.9",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s¹",row:5,col:11},
+      {z:48,sym:"Cd",name:"Cadmium",mass:"112.4",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s²",row:5,col:12},
+      {z:49,sym:"In",name:"Indium",mass:"114.8",cat:"post-transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p¹",row:5,col:13},
+      {z:50,sym:"Sn",name:"Tin",mass:"118.7",cat:"post-transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p²",row:5,col:14},
+      {z:51,sym:"Sb",name:"Antimony",mass:"121.8",cat:"metalloid",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p³",row:5,col:15},
+      {z:52,sym:"Te",name:"Tellurium",mass:"127.6",cat:"metalloid",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p⁴",row:5,col:16},
+      {z:53,sym:"I",name:"Iodine",mass:"126.9",cat:"halogen",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p⁵",row:5,col:17},
+      {z:54,sym:"Xe",name:"Xenon",mass:"131.3",cat:"noble-gas",phase:"Gas",econfig:"[Kr] 4d¹⁰ 5s² 5p⁶",row:5,col:18},
+      {z:55,sym:"Cs",name:"Caesium",mass:"132.9",cat:"alkali-metal",phase:"Solid",econfig:"[Xe] 6s¹",row:6,col:1},
+      {z:56,sym:"Ba",name:"Barium",mass:"137.3",cat:"alkaline-earth",phase:"Solid",econfig:"[Xe] 6s²",row:6,col:2},
+      /* Lanthanides row 9 */
+      {z:57,sym:"La",name:"Lanthanum",mass:"138.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 5d¹ 6s²",row:9,col:3},
+      {z:58,sym:"Ce",name:"Cerium",mass:"140.1",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹ 5d¹ 6s²",row:9,col:4},
+      {z:59,sym:"Pr",name:"Praseodymium",mass:"140.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f³ 6s²",row:9,col:5},
+      {z:60,sym:"Nd",name:"Neodymium",mass:"144.2",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁴ 6s²",row:9,col:6},
+      {z:61,sym:"Pm",name:"Promethium",mass:"(145)",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁵ 6s²",row:9,col:7},
+      {z:62,sym:"Sm",name:"Samarium",mass:"150.4",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁶ 6s²",row:9,col:8},
+      {z:63,sym:"Eu",name:"Europium",mass:"152.0",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁷ 6s²",row:9,col:9},
+      {z:64,sym:"Gd",name:"Gadolinium",mass:"157.3",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁷ 5d¹ 6s²",row:9,col:10},
+      {z:65,sym:"Tb",name:"Terbium",mass:"158.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁹ 6s²",row:9,col:11},
+      {z:66,sym:"Dy",name:"Dysprosium",mass:"162.5",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹⁰ 6s²",row:9,col:12},
+      {z:67,sym:"Ho",name:"Holmium",mass:"164.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹¹ 6s²",row:9,col:13},
+      {z:68,sym:"Er",name:"Erbium",mass:"167.3",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹² 6s²",row:9,col:14},
+      {z:69,sym:"Tm",name:"Thulium",mass:"168.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹³ 6s²",row:9,col:15},
+      {z:70,sym:"Yb",name:"Ytterbium",mass:"173.0",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹⁴ 6s²",row:9,col:16},
+      {z:71,sym:"Lu",name:"Lutetium",mass:"175.0",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹ 6s²",row:9,col:17},
+      {z:72,sym:"Hf",name:"Hafnium",mass:"178.5",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d² 6s²",row:6,col:4},
+      {z:73,sym:"Ta",name:"Tantalum",mass:"180.9",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d³ 6s²",row:6,col:5},
+      {z:74,sym:"W",name:"Tungsten",mass:"183.8",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁴ 6s²",row:6,col:6},
+      {z:75,sym:"Re",name:"Rhenium",mass:"186.2",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁵ 6s²",row:6,col:7},
+      {z:76,sym:"Os",name:"Osmium",mass:"190.2",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁶ 6s²",row:6,col:8},
+      {z:77,sym:"Ir",name:"Iridium",mass:"192.2",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁷ 6s²",row:6,col:9},
+      {z:78,sym:"Pt",name:"Platinum",mass:"195.1",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁹ 6s¹",row:6,col:10},
+      {z:79,sym:"Au",name:"Gold",mass:"197.0",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s¹",row:6,col:11},
+      {z:80,sym:"Hg",name:"Mercury",mass:"200.6",cat:"transition",phase:"Liquid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s²",row:6,col:12},
+      {z:81,sym:"Tl",name:"Thallium",mass:"204.4",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p¹",row:6,col:13},
+      {z:82,sym:"Pb",name:"Lead",mass:"207.2",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p²",row:6,col:14},
+      {z:83,sym:"Bi",name:"Bismuth",mass:"209.0",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p³",row:6,col:15},
+      {z:84,sym:"Po",name:"Polonium",mass:"(209)",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁴",row:6,col:16},
+      {z:85,sym:"At",name:"Astatine",mass:"(210)",cat:"halogen",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁵",row:6,col:17},
+      {z:86,sym:"Rn",name:"Radon",mass:"(222)",cat:"noble-gas",phase:"Gas",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁶",row:6,col:18},
+      {z:87,sym:"Fr",name:"Francium",mass:"(223)",cat:"alkali-metal",phase:"Solid",econfig:"[Rn] 7s¹",row:7,col:1},
+      {z:88,sym:"Ra",name:"Radium",mass:"(226)",cat:"alkaline-earth",phase:"Solid",econfig:"[Rn] 7s²",row:7,col:2},
+      /* Actinides row 10 */
+      {z:89,sym:"Ac",name:"Actinium",mass:"(227)",cat:"actinide",phase:"Solid",econfig:"[Rn] 6d¹ 7s²",row:10,col:3},
+      {z:90,sym:"Th",name:"Thorium",mass:"232.0",cat:"actinide",phase:"Solid",econfig:"[Rn] 6d² 7s²",row:10,col:4},
+      {z:91,sym:"Pa",name:"Protactinium",mass:"231.0",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f² 6d¹ 7s²",row:10,col:5},
+      {z:92,sym:"U",name:"Uranium",mass:"238.0",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f³ 6d¹ 7s²",row:10,col:6},
+      {z:93,sym:"Np",name:"Neptunium",mass:"(237)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁴ 6d¹ 7s²",row:10,col:7},
+      {z:94,sym:"Pu",name:"Plutonium",mass:"(244)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁶ 7s²",row:10,col:8},
+      {z:95,sym:"Am",name:"Americium",mass:"(243)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁷ 7s²",row:10,col:9},
+      {z:96,sym:"Cm",name:"Curium",mass:"(247)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁷ 6d¹ 7s²",row:10,col:10},
+      {z:97,sym:"Bk",name:"Berkelium",mass:"(247)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁹ 7s²",row:10,col:11},
+      {z:98,sym:"Cf",name:"Californium",mass:"(251)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹⁰ 7s²",row:10,col:12},
+      {z:99,sym:"Es",name:"Einsteinium",mass:"(252)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹¹ 7s²",row:10,col:13},
+      {z:100,sym:"Fm",name:"Fermium",mass:"(257)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹² 7s²",row:10,col:14},
+      {z:101,sym:"Md",name:"Mendelevium",mass:"(258)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹³ 7s²",row:10,col:15},
+      {z:102,sym:"No",name:"Nobelium",mass:"(259)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹⁴ 7s²",row:10,col:16},
+      {z:103,sym:"Lr",name:"Lawrencium",mass:"(266)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹⁴ 7s² 7p¹",row:10,col:17},
+      {z:104,sym:"Rf",name:"Rutherfordium",mass:"(267)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d² 7s²",row:7,col:4},
+      {z:105,sym:"Db",name:"Dubnium",mass:"(268)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d³ 7s²",row:7,col:5},
+      {z:106,sym:"Sg",name:"Seaborgium",mass:"(269)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁴ 7s²",row:7,col:6},
+      {z:107,sym:"Bh",name:"Bohrium",mass:"(270)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁵ 7s²",row:7,col:7},
+      {z:108,sym:"Hs",name:"Hassium",mass:"(277)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁶ 7s²",row:7,col:8},
+      {z:109,sym:"Mt",name:"Meitnerium",mass:"(278)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁷ 7s²",row:7,col:9},
+      {z:110,sym:"Ds",name:"Darmstadtium",mass:"(281)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁸ 7s²",row:7,col:10},
+      {z:111,sym:"Rg",name:"Roentgenium",mass:"(282)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁹ 7s²",row:7,col:11},
+      {z:112,sym:"Cn",name:"Copernicium",mass:"(285)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s²",row:7,col:12},
+      {z:113,sym:"Nh",name:"Nihonium",mass:"(286)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p¹",row:7,col:13},
+      {z:114,sym:"Fl",name:"Flerovium",mass:"(289)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p²",row:7,col:14},
+      {z:115,sym:"Mc",name:"Moscovium",mass:"(290)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p³",row:7,col:15},
+      {z:116,sym:"Lv",name:"Livermorium",mass:"(293)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁴",row:7,col:16},
+      {z:117,sym:"Ts",name:"Tennessine",mass:"(294)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁵",row:7,col:17},
+      {z:118,sym:"Og",name:"Oganesson",mass:"(294)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁶",row:7,col:18},
+    ];
+
+    const CAT_META = {
+      "nonmetal":       { label:"Nonmetal",           bg:"#1a4d35", color:"#b8ffd8" },
+      "noble-gas":      { label:"Noble Gas",          bg:"#3d2259", color:"#dbb8ff" },
+      "alkali-metal":   { label:"Alkali Metal",       bg:"#6b2222", color:"#ffc4c4" },
+      "alkaline-earth": { label:"Alkaline Earth",     bg:"#6b5518", color:"#ffe8a0" },
+      "metalloid":      { label:"Metalloid",          bg:"#1a5555", color:"#a0f0f0" },
+      "halogen":     
