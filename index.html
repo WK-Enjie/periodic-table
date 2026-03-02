@@ -1,282 +1,587 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Periodic Table Explorer – Chemistry Made Easy</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #0f1117;
-      color: #e0e0e0;
-      min-height: 100vh;
-    }
-    header {
-      text-align: center;
-      padding: 18px 10px 8px;
-      background: linear-gradient(135deg, #1a1d2e, #0f1117);
-      border-bottom: 1px solid #2a2d3e;
-    }
-    header h1 { font-size: 1.5rem; color: #7eb8ff; letter-spacing: 1px; }
-    header p { font-size: 0.85rem; color: #888; margin-top: 4px; }
-
-    /* Search */
-    .search-bar {
-      display: flex; justify-content: center; padding: 12px;
-    }
-    .search-bar input {
-      width: 320px; padding: 9px 14px; border-radius: 8px;
-      border: 1px solid #333; background: #1a1d2e; color: #e0e0e0;
-      font-size: 0.95rem; outline: none; transition: border .2s;
-    }
-    .search-bar input:focus { border-color: #7eb8ff; }
-
-    /* Legend */
-    .legend {
-      display: flex; flex-wrap: wrap; justify-content: center;
-      gap: 8px; padding: 4px 10px 10px; font-size: 0.72rem;
-    }
-    .legend-item {
-      display: flex; align-items: center; gap: 4px;
-    }
-    .legend-color {
-      width: 14px; height: 14px; border-radius: 3px;
-    }
-
-    /* Table grid */
-    .table-wrap {
-      overflow-x: auto; padding: 0 10px 10px;
-    }
-    .ptable {
-      display: grid;
-      grid-template-columns: repeat(18, minmax(52px, 1fr));
-      gap: 3px;
-      min-width: 960px;
-      margin: 0 auto;
-      max-width: 1200px;
-    }
-
-    /* Element cell */
-    .el-cell {
-      position: relative;
-      border-radius: 6px;
-      padding: 4px 3px 3px;
-      text-align: center;
-      cursor: pointer;
-      transition: transform .15s, box-shadow .15s;
-      border: 1px solid rgba(255,255,255,.06);
-      min-height: 58px;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-    }
-    .el-cell:hover {
-      transform: scale(1.18);
-      box-shadow: 0 0 12px rgba(126,184,255,.4);
-      z-index: 10;
-    }
-    .el-cell.dimmed { opacity: 0.18; pointer-events: none; }
-    .el-num { font-size: 0.55rem; color: rgba(255,255,255,.7); }
-    .el-sym { font-size: 1.05rem; font-weight: 700; line-height: 1.1; }
-    .el-name { font-size: 0.45rem; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-    .el-mass { font-size: 0.45rem; opacity: .6; }
-
-    /* Separator label */
-    .sep-label {
-      grid-column: 1 / -1;
-      text-align: center;
-      font-size: 0.7rem;
-      color: #666;
-      padding: 6px 0 2px;
-    }
-
-    /* Modal */
-    .modal-bg {
-      position: fixed; inset: 0; background: rgba(0,0,0,.65);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 100; animation: fadeIn .2s;
-    }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .modal {
-      background: #1a1d2e; border-radius: 14px;
-      padding: 28px 32px; max-width: 420px; width: 90%;
-      box-shadow: 0 8px 40px rgba(0,0,0,.6);
-      position: relative;
-    }
-    .modal-close {
-      position: absolute; top: 10px; right: 14px;
-      background: none; border: none; color: #888;
-      font-size: 1.5rem; cursor: pointer;
-    }
-    .modal-close:hover { color: #fff; }
-    .modal-sym {
-      font-size: 3rem; font-weight: 800; line-height: 1;
-    }
-    .modal-name { font-size: 1.3rem; font-weight: 600; color: #ccc; }
-    .modal-num { font-size: 0.9rem; color: #888; margin-bottom: 14px; }
-    .modal-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 8px 16px; margin-top: 10px; font-size: 0.85rem;
-    }
-    .modal-grid dt { color: #888; }
-    .modal-grid dd { color: #ddd; font-weight: 500; }
-    .modal-cat-badge {
-      display: inline-block; padding: 3px 10px; border-radius: 20px;
-      font-size: 0.75rem; font-weight: 600; margin-top: 6px;
-    }
-
-    /* Category colors */
-    .cat-nonmetal        { background: #2a6e4e; color: #b8ffd8; }
-    .cat-noble-gas       { background: #5b3a7a; color: #dbb8ff; }
-    .cat-alkali-metal    { background: #8c3a3a; color: #ffc4c4; }
-    .cat-alkaline-earth  { background: #8c6e2a; color: #ffe8a0; }
-    .cat-metalloid       { background: #2a6e6e; color: #a0f0f0; }
-    .cat-halogen         { background: #2a4e8c; color: #a8d0ff; }
-    .cat-transition      { background: #3a5c8c; color: #b0d4ff; }
-    .cat-post-transition { background: #4a6a5a; color: #b8e8c8; }
-    .cat-lanthanide      { background: #6e5a2a; color: #ffe0a0; }
-    .cat-actinide        { background: #6e3a4a; color: #ffb8c8; }
-    .cat-unknown         { background: #444; color: #ccc; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Periodic Table Explorer – O-Level Chemistry 6092</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0e1a;--surface:#131830;--card:#1a2040;--border:#252e4a;
+  --text:#e0e4f0;--muted:#8890a8;
+  --am:#ff6b6b;--am-bg:#2d1a1a;--am-dim:#ff6b6b33;
+  --ha:#64b5f6;--ha-bg:#1a2240;--ha-dim:#64b5f633;
+  --ng:#ce93d8;--ng-bg:#2a1a30;--ng-dim:#ce93d833;
+  --tm:#4dd0e1;--tm-bg:#1a2a2e;--tm-dim:#4dd0e133;
+  --ae:#ffc107;--ae-bg:#2a2418;
+  --pt:#66bb6a;--pt-bg:#1a2a1a;
+  --ml:#26c6da;--ml-bg:#1a2828;
+  --nm:#8bc34a;--nm-bg:#1e2a18;
+  --la:#ffb74d;--la-bg:#2a2218;
+  --ac:#f06292;--ac-bg:#2a1822;
+  --un:#78909c;--un-bg:#1e2228;
+  --success:#66bb6a;--error:#ef5350;--gold:#ffd54f;
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+nav{position:sticky;top:0;z-index:1000;background:rgba(10,14,26,.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 20px}
+.nav-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:4px;height:52px;overflow-x:auto}
+.nav-brand{font-weight:800;font-size:.92rem;color:var(--gold);white-space:nowrap;margin-right:8px}
+.nav-link{color:var(--muted);text-decoration:none;font-size:.73rem;font-weight:500;padding:4px 8px;border-radius:20px;white-space:nowrap;transition:.2s}
+.nav-link:hover,.nav-link.active{color:#fff;background:rgba(255,255,255,.08)}
+.hero{text-align:center;padding:28px 20px 12px}
+.hero h1{font-size:clamp(1.2rem,3vw,1.9rem);font-weight:900;background:linear-gradient(135deg,var(--am),var(--ha),var(--ng),var(--tm));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{color:var(--muted);margin-top:4px;font-size:.84rem;max-width:600px;margin-left:auto;margin-right:auto}
+.group-filters{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:10px 20px}
+.g-btn{padding:5px 13px;border-radius:24px;border:2px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:.73rem;font-weight:600;cursor:pointer;transition:.25s}
+.g-btn:hover{border-color:rgba(255,255,255,.3);color:#fff}
+.g-btn.active{color:#fff}
+.g-btn[data-g="am"].active{border-color:var(--am);background:var(--am-dim);color:var(--am)}
+.g-btn[data-g="ha"].active{border-color:var(--ha);background:var(--ha-dim);color:var(--ha)}
+.g-btn[data-g="ng"].active{border-color:var(--ng);background:var(--ng-dim);color:var(--ng)}
+.g-btn[data-g="tm"].active{border-color:var(--tm);background:var(--tm-dim);color:var(--tm)}
+.g-btn[data-g="all"].active{border-color:var(--gold);background:rgba(255,213,79,.12);color:var(--gold)}
+.pt-wrap{overflow-x:auto;padding:0 10px 10px}
+.ptable{display:grid;grid-template-columns:repeat(18,minmax(44px,1fr));gap:2px;min-width:860px;max-width:1200px;margin:0 auto}
+.el{border-radius:5px;padding:2px;text-align:center;cursor:pointer;transition:.2s;border:1px solid rgba(255,255,255,.04);min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.el:hover{transform:scale(1.18);z-index:10;box-shadow:0 0 12px rgba(255,255,255,.15)}
+.el.dimmed{opacity:.12;pointer-events:none;transform:none}
+.el .z{font-size:.44rem;opacity:.7}.el .sym{font-size:.84rem;font-weight:700;line-height:1.1}.el .nm{font-size:.32rem;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.el-placeholder{border-radius:5px;border:1px dashed;display:flex;align-items:center;justify-content:center;font-size:.4rem;min-height:46px;opacity:.5}
+section{padding:38px 20px;max-width:1200px;margin:0 auto}
+.section-header{text-align:center;margin-bottom:26px}
+.section-header h2{font-size:clamp(1.1rem,2.6vw,1.6rem);font-weight:800;margin-bottom:4px}
+.section-header p{color:var(--muted);max-width:700px;margin:0 auto;font-size:.86rem}
+.accent-am{color:var(--am)}.accent-ha{color:var(--ha)}.accent-ng{color:var(--ng)}.accent-tm{color:var(--tm)}.accent-gold{color:var(--gold)}
+.tabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:18px;justify-content:center}
+.tab-btn{padding:6px 15px;border-radius:24px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:.76rem;font-weight:600;cursor:pointer;transition:.2s}
+.tab-btn:hover{border-color:rgba(255,255,255,.2);color:#fff}
+.tab-btn.active{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.2)}
+.tab-panel{display:none;animation:fadeUp .4s}.tab-panel.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.card{background:var(--card);border-radius:var(--radius);padding:18px;border:1px solid var(--border)}
+.card h3{font-size:.92rem;font-weight:700;margin-bottom:8px}
+.data-table{width:100%;border-collapse:collapse;font-size:.76rem;margin:8px 0}
+.data-table th,.data-table td{padding:5px 7px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table th{color:var(--muted);font-weight:600;font-size:.66rem;text-transform:uppercase;letter-spacing:.5px}
+.bar-chart{display:flex;align-items:flex-end;gap:5px;height:140px;padding:6px 0;margin:10px 0}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%}
+.bar-col .bar{width:100%;border-radius:4px 4px 0 0;min-width:22px;margin-top:auto}
+.bar-col .bar-label{font-size:.62rem;font-weight:700}.bar-col .bar-val{font-size:.48rem;color:var(--muted)}
+.equation{background:rgba(255,255,255,.04);border-radius:8px;padding:10px 12px;margin:6px 0;font-size:.82rem;border-left:3px solid var(--gold);font-family:'Courier New',monospace}
+.equation .word-eq{font-family:'Inter',sans-serif;font-size:.72rem;color:var(--muted);margin-top:3px}
+.equation.ionic{border-left-color:var(--ng)}
+.equation .eq-label{font-family:'Inter',sans-serif;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.key-point{background:rgba(255,213,79,.06);border-left:3px solid var(--gold);padding:9px 12px;border-radius:0 8px 8px 0;margin:8px 0;font-size:.8rem}
+.key-point strong{color:var(--gold)}
+.def-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.def-card{background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--border)}
+.def-card .def-term{font-size:.9rem;font-weight:700;margin-bottom:4px}
+.def-card .def-text{font-size:.8rem;color:var(--muted);line-height:1.6}
+.def-card .def-text strong{color:var(--text)}
+.prop-type{display:inline-block;padding:2px 8px;border-radius:14px;font-size:.65rem;font-weight:700;margin-bottom:7px}
+.prop-phys{background:rgba(100,181,246,.12);color:var(--ha);border:1px solid rgba(100,181,246,.25)}
+.prop-chem{background:rgba(255,107,107,.12);color:var(--am);border:1px solid rgba(255,107,107,.25)}
+.olevel-box{background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.2);border-radius:10px;padding:14px 16px;margin:10px 0}
+.olevel-box .olevel-hdr{font-size:.8rem;font-weight:700;color:var(--ng);margin-bottom:6px}
+.olevel-box ol{font-size:.8rem;padding-left:18px;line-height:1.9}
+.olevel-box .olevel-note{font-size:.7rem;color:var(--muted);margin-top:5px;font-style:italic}
+.summary-box{background:rgba(255,255,255,.03);border-radius:10px;padding:12px;border:1px solid var(--border)}
+.summary-box h4{font-size:.82rem;margin-bottom:6px}
+.summary-box ul{font-size:.78rem;padding-left:14px;line-height:1.8;color:var(--muted)}
+.summary-box ul strong{color:var(--text)}
+.trend-box{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);margin:16px 0}
+.trend-grid{display:grid;grid-template-columns:44px 1fr;grid-template-rows:44px 1fr;gap:0;min-height:240px}
+.trend-content{grid-row:2;grid-column:2;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:6px}
+.trend-item{background:rgba(255,255,255,.03);border-radius:8px;padding:9px;font-size:.74rem}
+.trend-item .label{font-weight:700;margin-bottom:2px}.trend-item .desc{color:var(--muted);font-size:.7rem}
+.video-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.video-card{background:var(--card);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.video-card .video-embed{position:relative;width:100%;padding-top:56.25%;background:#000}
+.video-card .video-embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none}
+.video-card .video-info{padding:11px}
+.video-card .video-info h4{font-size:.82rem;margin-bottom:2px}
+.video-card .video-info p{font-size:.7rem;color:var(--muted)}
+.yt-btn{display:inline-flex;align-items:center;gap:4px;margin-top:5px;padding:6px 12px;background:#ff0000;color:#fff;text-decoration:none;border-radius:8px;font-size:.72rem;font-weight:600}
+.uses-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}
+.use-item{background:rgba(255,255,255,.03);border-radius:10px;padding:10px;text-align:center;font-size:.74rem;border:1px solid var(--border)}
+.use-item .use-icon{font-size:1.3rem;margin-bottom:4px}.use-item strong{display:block;margin-bottom:2px;font-size:.78rem}
+.diagram-container{background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--border);margin:12px 0;overflow-x:auto}
+.diagram-container h3{text-align:center;margin-bottom:10px;font-size:.92rem}
+.diagram-container svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.quiz-container{max-width:750px;margin:0 auto}
+.quiz-progress{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:.78rem;color:var(--muted)}
+.quiz-progress-bar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.quiz-progress-fill{height:100%;background:linear-gradient(90deg,var(--am),var(--tm));border-radius:3px;transition:width .4s}
+.quiz-card{background:var(--card);border-radius:var(--radius);padding:22px;border:1px solid var(--border)}
+.quiz-card .q-number{font-size:.68rem;color:var(--muted);margin-bottom:3px}
+.quiz-card .q-cat{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.6rem;font-weight:600;margin-bottom:7px}
+.quiz-card .q-text{font-size:.92rem;font-weight:600;margin-bottom:14px;line-height:1.5}
+.q-options{display:flex;flex-direction:column;gap:7px}
+.q-opt{padding:10px 13px;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:.84rem;cursor:pointer;text-align:left;transition:.2s;display:flex;align-items:center;gap:8px}
+.q-opt:hover:not(.locked){border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.04)}
+.q-opt.correct{border-color:var(--success);background:rgba(102,187,106,.12);color:var(--success)}
+.q-opt.wrong{border-color:var(--error);background:rgba(239,83,80,.12);color:var(--error)}
+.q-opt .opt-letter{width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.73rem;flex-shrink:0}
+.q-opt.correct .opt-letter{background:var(--success);color:#000}
+.q-opt.wrong .opt-letter{background:var(--error);color:#fff}
+.q-explanation{margin-top:11px;padding:10px 13px;border-radius:10px;background:rgba(255,213,79,.06);border:1px solid rgba(255,213,79,.15);font-size:.78rem;color:var(--gold);display:none}
+.q-explanation.show{display:block;animation:fadeUp .3s}
+.quiz-nav{display:flex;justify-content:space-between;margin-top:14px}
+.quiz-btn{padding:8px 18px;border-radius:10px;border:none;font-family:inherit;font-weight:600;font-size:.78rem;cursor:pointer;transition:.2s}
+.quiz-btn.primary{background:var(--ha);color:#000}.quiz-btn.primary:hover{background:#90caf9}
+.quiz-btn.secondary{background:rgba(255,255,255,.08);color:var(--text)}.quiz-btn:disabled{opacity:.3;cursor:not-allowed}
+.quiz-results{text-align:center;padding:30px 20px}
+.quiz-results .score-circle{width:110px;height:110px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 14px;font-size:1.7rem;font-weight:800}
+.quiz-results .score-label{font-size:.78rem;font-weight:400;color:var(--muted)}
+/* Worksheet */
+.ws-admin{display:none;background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);margin-bottom:18px}
+.ws-admin.show{display:block}
+.ws-admin h3{font-size:.9rem;font-weight:700;margin-bottom:10px;color:var(--gold)}
+.ws-admin label{font-size:.76rem;color:var(--muted);display:block;margin-bottom:3px;font-weight:600}
+.ws-input{width:100%;padding:8px 11px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:.82rem;outline:none;margin-bottom:8px}
+.ws-input:focus{border-color:var(--ha)}
+.ws-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.ws-row>div{flex:1;min-width:140px}
+.ws-btn{padding:8px 18px;border-radius:10px;border:none;font-family:inherit;font-weight:600;font-size:.78rem;cursor:pointer;transition:.2s}
+.ws-btn-primary{background:var(--gold);color:#000}.ws-btn-primary:hover{background:#ffe082}
+.ws-btn-secondary{background:rgba(255,255,255,.08);color:var(--text);border:1px solid var(--border)}
+.ws-status{font-size:.74rem;padding:7px 11px;border-radius:8px;margin-top:8px;display:none}
+.ws-status.show{display:block;animation:fadeUp .3s}
+.ws-status.ok{background:rgba(102,187,106,.1);color:var(--success);border:1px solid rgba(102,187,106,.2)}
+.ws-status.err{background:rgba(239,83,80,.1);color:var(--error);border:1px solid rgba(239,83,80,.2)}
+.ws-status.info{background:rgba(100,181,246,.1);color:var(--ha);border:1px solid rgba(100,181,246,.2)}
+.ws-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:14px}
+.ws-card{background:var(--card);border-radius:var(--radius);padding:18px;border:1px solid var(--border);cursor:pointer;transition:.2s}
+.ws-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.ws-card .ws-title{font-size:.88rem;font-weight:700;margin-bottom:3px}
+.ws-card .ws-desc{font-size:.72rem;color:var(--muted);margin-bottom:6px}
+.ws-card .ws-meta{display:flex;gap:6px;flex-wrap:wrap}
+.ws-card .ws-tag{padding:2px 7px;border-radius:12px;font-size:.6rem;font-weight:600;background:rgba(255,255,255,.06);color:var(--muted)}
+.ws-card .ws-tag.topic{background:rgba(100,181,246,.1);color:var(--ha)}
+.ws-card .ws-tag.diff{background:rgba(255,213,79,.1);color:var(--gold)}
+.ws-loading{text-align:center;padding:30px;color:var(--muted);font-size:.85rem}
+.ws-empty{text-align:center;padding:30px;color:var(--muted);font-size:.85rem}
+footer{text-align:center;padding:30px 20px;color:var(--muted);font-size:.72rem;border-top:1px solid var(--border);margin-top:30px}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .6s,transform .6s}.reveal.visible{opacity:1;transform:translateY(0)}
+@media(max-width:768px){.card-grid,.trend-content,.video-grid,.def-grid,.ws-list{grid-template-columns:1fr}section{padding:22px 10px}.sg2{grid-template-columns:1fr!important}.ws-row{flex-direction:column}}
+</style>
 </head>
 <body>
-  <div id="root"></div>
 
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<nav><div class="nav-inner">
+  <span class="nav-brand">⚛ PT Explorer</span>
+  <a class="nav-link active" href="#table">Table</a>
+  <a class="nav-link" href="#definitions">Definitions</a>
+  <a class="nav-link" href="#trends">Trends</a>
+  <a class="nav-link" href="#bonding">Bonding</a>
+  <a class="nav-link" href="#alkali">Gp 1</a>
+  <a class="nav-link" href="#halogens">Gp 17</a>
+  <a class="nav-link" href="#noble">Gp 18</a>
+  <a class="nav-link" href="#transition">Transition</a>
+  <a class="nav-link" href="#videos">Videos</a>
+  <a class="nav-link" href="#quiz">Quiz</a>
+  <a class="nav-link" href="#worksheets" style="color:var(--gold)">📄 Practice</a>
+</div></nav>
 
-  <script type="text/babel">
-    const { useState, useMemo } = React;
+<div class="hero" id="table"><h1>Periodic Table Explorer</h1><p>O-Level Chemistry 6092. Click elements, filter groups, and practise.</p></div>
 
-    /* ── Element Data (all 118) ── */
-    const ELEMENTS = [
-      {z:1,sym:"H",name:"Hydrogen",mass:"1.008",cat:"nonmetal",phase:"Gas",econfig:"1s¹",row:1,col:1},
-      {z:2,sym:"He",name:"Helium",mass:"4.003",cat:"noble-gas",phase:"Gas",econfig:"1s²",row:1,col:18},
-      {z:3,sym:"Li",name:"Lithium",mass:"6.941",cat:"alkali-metal",phase:"Solid",econfig:"[He] 2s¹",row:2,col:1},
-      {z:4,sym:"Be",name:"Beryllium",mass:"9.012",cat:"alkaline-earth",phase:"Solid",econfig:"[He] 2s²",row:2,col:2},
-      {z:5,sym:"B",name:"Boron",mass:"10.81",cat:"metalloid",phase:"Solid",econfig:"[He] 2s² 2p¹",row:2,col:13},
-      {z:6,sym:"C",name:"Carbon",mass:"12.01",cat:"nonmetal",phase:"Solid",econfig:"[He] 2s² 2p²",row:2,col:14},
-      {z:7,sym:"N",name:"Nitrogen",mass:"14.01",cat:"nonmetal",phase:"Gas",econfig:"[He] 2s² 2p³",row:2,col:15},
-      {z:8,sym:"O",name:"Oxygen",mass:"16.00",cat:"nonmetal",phase:"Gas",econfig:"[He] 2s² 2p⁴",row:2,col:16},
-      {z:9,sym:"F",name:"Fluorine",mass:"19.00",cat:"halogen",phase:"Gas",econfig:"[He] 2s² 2p⁵",row:2,col:17},
-      {z:10,sym:"Ne",name:"Neon",mass:"20.18",cat:"noble-gas",phase:"Gas",econfig:"[He] 2s² 2p⁶",row:2,col:18},
-      {z:11,sym:"Na",name:"Sodium",mass:"22.99",cat:"alkali-metal",phase:"Solid",econfig:"[Ne] 3s¹",row:3,col:1},
-      {z:12,sym:"Mg",name:"Magnesium",mass:"24.31",cat:"alkaline-earth",phase:"Solid",econfig:"[Ne] 3s²",row:3,col:2},
-      {z:13,sym:"Al",name:"Aluminium",mass:"26.98",cat:"post-transition",phase:"Solid",econfig:"[Ne] 3s² 3p¹",row:3,col:13},
-      {z:14,sym:"Si",name:"Silicon",mass:"28.09",cat:"metalloid",phase:"Solid",econfig:"[Ne] 3s² 3p²",row:3,col:14},
-      {z:15,sym:"P",name:"Phosphorus",mass:"30.97",cat:"nonmetal",phase:"Solid",econfig:"[Ne] 3s² 3p³",row:3,col:15},
-      {z:16,sym:"S",name:"Sulfur",mass:"32.07",cat:"nonmetal",phase:"Solid",econfig:"[Ne] 3s² 3p⁴",row:3,col:16},
-      {z:17,sym:"Cl",name:"Chlorine",mass:"35.45",cat:"halogen",phase:"Gas",econfig:"[Ne] 3s² 3p⁵",row:3,col:17},
-      {z:18,sym:"Ar",name:"Argon",mass:"39.95",cat:"noble-gas",phase:"Gas",econfig:"[Ne] 3s² 3p⁶",row:3,col:18},
-      {z:19,sym:"K",name:"Potassium",mass:"39.10",cat:"alkali-metal",phase:"Solid",econfig:"[Ar] 4s¹",row:4,col:1},
-      {z:20,sym:"Ca",name:"Calcium",mass:"40.08",cat:"alkaline-earth",phase:"Solid",econfig:"[Ar] 4s²",row:4,col:2},
-      {z:21,sym:"Sc",name:"Scandium",mass:"44.96",cat:"transition",phase:"Solid",econfig:"[Ar] 3d¹ 4s²",row:4,col:3},
-      {z:22,sym:"Ti",name:"Titanium",mass:"47.87",cat:"transition",phase:"Solid",econfig:"[Ar] 3d² 4s²",row:4,col:4},
-      {z:23,sym:"V",name:"Vanadium",mass:"50.94",cat:"transition",phase:"Solid",econfig:"[Ar] 3d³ 4s²",row:4,col:5},
-      {z:24,sym:"Cr",name:"Chromium",mass:"52.00",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁵ 4s¹",row:4,col:6},
-      {z:25,sym:"Mn",name:"Manganese",mass:"54.94",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁵ 4s²",row:4,col:7},
-      {z:26,sym:"Fe",name:"Iron",mass:"55.85",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁶ 4s²",row:4,col:8},
-      {z:27,sym:"Co",name:"Cobalt",mass:"58.93",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁷ 4s²",row:4,col:9},
-      {z:28,sym:"Ni",name:"Nickel",mass:"58.69",cat:"transition",phase:"Solid",econfig:"[Ar] 3d⁸ 4s²",row:4,col:10},
-      {z:29,sym:"Cu",name:"Copper",mass:"63.55",cat:"transition",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s¹",row:4,col:11},
-      {z:30,sym:"Zn",name:"Zinc",mass:"65.38",cat:"transition",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s²",row:4,col:12},
-      {z:31,sym:"Ga",name:"Gallium",mass:"69.72",cat:"post-transition",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p¹",row:4,col:13},
-      {z:32,sym:"Ge",name:"Germanium",mass:"72.63",cat:"metalloid",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p²",row:4,col:14},
-      {z:33,sym:"As",name:"Arsenic",mass:"74.92",cat:"metalloid",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p³",row:4,col:15},
-      {z:34,sym:"Se",name:"Selenium",mass:"78.97",cat:"nonmetal",phase:"Solid",econfig:"[Ar] 3d¹⁰ 4s² 4p⁴",row:4,col:16},
-      {z:35,sym:"Br",name:"Bromine",mass:"79.90",cat:"halogen",phase:"Liquid",econfig:"[Ar] 3d¹⁰ 4s² 4p⁵",row:4,col:17},
-      {z:36,sym:"Kr",name:"Krypton",mass:"83.80",cat:"noble-gas",phase:"Gas",econfig:"[Ar] 3d¹⁰ 4s² 4p⁶",row:4,col:18},
-      {z:37,sym:"Rb",name:"Rubidium",mass:"85.47",cat:"alkali-metal",phase:"Solid",econfig:"[Kr] 5s¹",row:5,col:1},
-      {z:38,sym:"Sr",name:"Strontium",mass:"87.62",cat:"alkaline-earth",phase:"Solid",econfig:"[Kr] 5s²",row:5,col:2},
-      {z:39,sym:"Y",name:"Yttrium",mass:"88.91",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹ 5s²",row:5,col:3},
-      {z:40,sym:"Zr",name:"Zirconium",mass:"91.22",cat:"transition",phase:"Solid",econfig:"[Kr] 4d² 5s²",row:5,col:4},
-      {z:41,sym:"Nb",name:"Niobium",mass:"92.91",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁴ 5s¹",row:5,col:5},
-      {z:42,sym:"Mo",name:"Molybdenum",mass:"95.95",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁵ 5s¹",row:5,col:6},
-      {z:43,sym:"Tc",name:"Technetium",mass:"(98)",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁵ 5s²",row:5,col:7},
-      {z:44,sym:"Ru",name:"Ruthenium",mass:"101.1",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁷ 5s¹",row:5,col:8},
-      {z:45,sym:"Rh",name:"Rhodium",mass:"102.9",cat:"transition",phase:"Solid",econfig:"[Kr] 4d⁸ 5s¹",row:5,col:9},
-      {z:46,sym:"Pd",name:"Palladium",mass:"106.4",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹⁰",row:5,col:10},
-      {z:47,sym:"Ag",name:"Silver",mass:"107.9",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s¹",row:5,col:11},
-      {z:48,sym:"Cd",name:"Cadmium",mass:"112.4",cat:"transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s²",row:5,col:12},
-      {z:49,sym:"In",name:"Indium",mass:"114.8",cat:"post-transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p¹",row:5,col:13},
-      {z:50,sym:"Sn",name:"Tin",mass:"118.7",cat:"post-transition",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p²",row:5,col:14},
-      {z:51,sym:"Sb",name:"Antimony",mass:"121.8",cat:"metalloid",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p³",row:5,col:15},
-      {z:52,sym:"Te",name:"Tellurium",mass:"127.6",cat:"metalloid",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p⁴",row:5,col:16},
-      {z:53,sym:"I",name:"Iodine",mass:"126.9",cat:"halogen",phase:"Solid",econfig:"[Kr] 4d¹⁰ 5s² 5p⁵",row:5,col:17},
-      {z:54,sym:"Xe",name:"Xenon",mass:"131.3",cat:"noble-gas",phase:"Gas",econfig:"[Kr] 4d¹⁰ 5s² 5p⁶",row:5,col:18},
-      {z:55,sym:"Cs",name:"Caesium",mass:"132.9",cat:"alkali-metal",phase:"Solid",econfig:"[Xe] 6s¹",row:6,col:1},
-      {z:56,sym:"Ba",name:"Barium",mass:"137.3",cat:"alkaline-earth",phase:"Solid",econfig:"[Xe] 6s²",row:6,col:2},
-      /* Lanthanides row 9 */
-      {z:57,sym:"La",name:"Lanthanum",mass:"138.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 5d¹ 6s²",row:9,col:3},
-      {z:58,sym:"Ce",name:"Cerium",mass:"140.1",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹ 5d¹ 6s²",row:9,col:4},
-      {z:59,sym:"Pr",name:"Praseodymium",mass:"140.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f³ 6s²",row:9,col:5},
-      {z:60,sym:"Nd",name:"Neodymium",mass:"144.2",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁴ 6s²",row:9,col:6},
-      {z:61,sym:"Pm",name:"Promethium",mass:"(145)",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁵ 6s²",row:9,col:7},
-      {z:62,sym:"Sm",name:"Samarium",mass:"150.4",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁶ 6s²",row:9,col:8},
-      {z:63,sym:"Eu",name:"Europium",mass:"152.0",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁷ 6s²",row:9,col:9},
-      {z:64,sym:"Gd",name:"Gadolinium",mass:"157.3",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁷ 5d¹ 6s²",row:9,col:10},
-      {z:65,sym:"Tb",name:"Terbium",mass:"158.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f⁹ 6s²",row:9,col:11},
-      {z:66,sym:"Dy",name:"Dysprosium",mass:"162.5",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹⁰ 6s²",row:9,col:12},
-      {z:67,sym:"Ho",name:"Holmium",mass:"164.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹¹ 6s²",row:9,col:13},
-      {z:68,sym:"Er",name:"Erbium",mass:"167.3",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹² 6s²",row:9,col:14},
-      {z:69,sym:"Tm",name:"Thulium",mass:"168.9",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹³ 6s²",row:9,col:15},
-      {z:70,sym:"Yb",name:"Ytterbium",mass:"173.0",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹⁴ 6s²",row:9,col:16},
-      {z:71,sym:"Lu",name:"Lutetium",mass:"175.0",cat:"lanthanide",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹ 6s²",row:9,col:17},
-      {z:72,sym:"Hf",name:"Hafnium",mass:"178.5",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d² 6s²",row:6,col:4},
-      {z:73,sym:"Ta",name:"Tantalum",mass:"180.9",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d³ 6s²",row:6,col:5},
-      {z:74,sym:"W",name:"Tungsten",mass:"183.8",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁴ 6s²",row:6,col:6},
-      {z:75,sym:"Re",name:"Rhenium",mass:"186.2",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁵ 6s²",row:6,col:7},
-      {z:76,sym:"Os",name:"Osmium",mass:"190.2",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁶ 6s²",row:6,col:8},
-      {z:77,sym:"Ir",name:"Iridium",mass:"192.2",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁷ 6s²",row:6,col:9},
-      {z:78,sym:"Pt",name:"Platinum",mass:"195.1",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d⁹ 6s¹",row:6,col:10},
-      {z:79,sym:"Au",name:"Gold",mass:"197.0",cat:"transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s¹",row:6,col:11},
-      {z:80,sym:"Hg",name:"Mercury",mass:"200.6",cat:"transition",phase:"Liquid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s²",row:6,col:12},
-      {z:81,sym:"Tl",name:"Thallium",mass:"204.4",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p¹",row:6,col:13},
-      {z:82,sym:"Pb",name:"Lead",mass:"207.2",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p²",row:6,col:14},
-      {z:83,sym:"Bi",name:"Bismuth",mass:"209.0",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p³",row:6,col:15},
-      {z:84,sym:"Po",name:"Polonium",mass:"(209)",cat:"post-transition",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁴",row:6,col:16},
-      {z:85,sym:"At",name:"Astatine",mass:"(210)",cat:"halogen",phase:"Solid",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁵",row:6,col:17},
-      {z:86,sym:"Rn",name:"Radon",mass:"(222)",cat:"noble-gas",phase:"Gas",econfig:"[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁶",row:6,col:18},
-      {z:87,sym:"Fr",name:"Francium",mass:"(223)",cat:"alkali-metal",phase:"Solid",econfig:"[Rn] 7s¹",row:7,col:1},
-      {z:88,sym:"Ra",name:"Radium",mass:"(226)",cat:"alkaline-earth",phase:"Solid",econfig:"[Rn] 7s²",row:7,col:2},
-      /* Actinides row 10 */
-      {z:89,sym:"Ac",name:"Actinium",mass:"(227)",cat:"actinide",phase:"Solid",econfig:"[Rn] 6d¹ 7s²",row:10,col:3},
-      {z:90,sym:"Th",name:"Thorium",mass:"232.0",cat:"actinide",phase:"Solid",econfig:"[Rn] 6d² 7s²",row:10,col:4},
-      {z:91,sym:"Pa",name:"Protactinium",mass:"231.0",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f² 6d¹ 7s²",row:10,col:5},
-      {z:92,sym:"U",name:"Uranium",mass:"238.0",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f³ 6d¹ 7s²",row:10,col:6},
-      {z:93,sym:"Np",name:"Neptunium",mass:"(237)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁴ 6d¹ 7s²",row:10,col:7},
-      {z:94,sym:"Pu",name:"Plutonium",mass:"(244)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁶ 7s²",row:10,col:8},
-      {z:95,sym:"Am",name:"Americium",mass:"(243)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁷ 7s²",row:10,col:9},
-      {z:96,sym:"Cm",name:"Curium",mass:"(247)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁷ 6d¹ 7s²",row:10,col:10},
-      {z:97,sym:"Bk",name:"Berkelium",mass:"(247)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f⁹ 7s²",row:10,col:11},
-      {z:98,sym:"Cf",name:"Californium",mass:"(251)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹⁰ 7s²",row:10,col:12},
-      {z:99,sym:"Es",name:"Einsteinium",mass:"(252)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹¹ 7s²",row:10,col:13},
-      {z:100,sym:"Fm",name:"Fermium",mass:"(257)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹² 7s²",row:10,col:14},
-      {z:101,sym:"Md",name:"Mendelevium",mass:"(258)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹³ 7s²",row:10,col:15},
-      {z:102,sym:"No",name:"Nobelium",mass:"(259)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹⁴ 7s²",row:10,col:16},
-      {z:103,sym:"Lr",name:"Lawrencium",mass:"(266)",cat:"actinide",phase:"Solid",econfig:"[Rn] 5f¹⁴ 7s² 7p¹",row:10,col:17},
-      {z:104,sym:"Rf",name:"Rutherfordium",mass:"(267)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d² 7s²",row:7,col:4},
-      {z:105,sym:"Db",name:"Dubnium",mass:"(268)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d³ 7s²",row:7,col:5},
-      {z:106,sym:"Sg",name:"Seaborgium",mass:"(269)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁴ 7s²",row:7,col:6},
-      {z:107,sym:"Bh",name:"Bohrium",mass:"(270)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁵ 7s²",row:7,col:7},
-      {z:108,sym:"Hs",name:"Hassium",mass:"(277)",cat:"transition",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁶ 7s²",row:7,col:8},
-      {z:109,sym:"Mt",name:"Meitnerium",mass:"(278)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁷ 7s²",row:7,col:9},
-      {z:110,sym:"Ds",name:"Darmstadtium",mass:"(281)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁸ 7s²",row:7,col:10},
-      {z:111,sym:"Rg",name:"Roentgenium",mass:"(282)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d⁹ 7s²",row:7,col:11},
-      {z:112,sym:"Cn",name:"Copernicium",mass:"(285)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s²",row:7,col:12},
-      {z:113,sym:"Nh",name:"Nihonium",mass:"(286)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p¹",row:7,col:13},
-      {z:114,sym:"Fl",name:"Flerovium",mass:"(289)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p²",row:7,col:14},
-      {z:115,sym:"Mc",name:"Moscovium",mass:"(290)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p³",row:7,col:15},
-      {z:116,sym:"Lv",name:"Livermorium",mass:"(293)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁴",row:7,col:16},
-      {z:117,sym:"Ts",name:"Tennessine",mass:"(294)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁵",row:7,col:17},
-      {z:118,sym:"Og",name:"Oganesson",mass:"(294)",cat:"unknown",phase:"Unknown",econfig:"[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁶",row:7,col:18},
-    ];
+<div class="group-filters">
+  <button class="g-btn active" data-g="all" onclick="filterGroup('all')">All</button>
+  <button class="g-btn" data-g="am" onclick="filterGroup('am')">🔴 Gp 1</button>
+  <button class="g-btn" data-g="ha" onclick="filterGroup('ha')">🔵 Gp 17</button>
+  <button class="g-btn" data-g="ng" onclick="filterGroup('ng')">🟣 Gp 18</button>
+  <button class="g-btn" data-g="tm" onclick="filterGroup('tm')">🟢 Transition</button>
+</div>
+<div class="pt-wrap"><div class="ptable" id="ptable"></div></div>
 
-    const CAT_META = {
-      "nonmetal":       { label:"Nonmetal",           bg:"#1a4d35", color:"#b8ffd8" },
-      "noble-gas":      { label:"Noble Gas",          bg:"#3d2259", color:"#dbb8ff" },
-      "alkali-metal":   { label:"Alkali Metal",       bg:"#6b2222", color:"#ffc4c4" },
-      "alkaline-earth": { label:"Alkaline Earth",     bg:"#6b5518", color:"#ffe8a0" },
-      "metalloid":      { label:"Metalloid",          bg:"#1a5555", color:"#a0f0f0" },
-      "halogen":     
+<div id="elModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:16px;padding:24px;max-width:380px;width:92%;position:relative" onclick="event.stopPropagation()">
+    <button onclick="closeModal()" style="position:absolute;top:8px;right:12px;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer">×</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- DEFINITIONS -->
+<section id="definitions" class="reveal">
+  <div class="section-header"><h2>📖 Key <span class="accent-gold">Definitions</span></h2></div>
+  <div class="def-grid">
+    <div class="def-card" style="border-color:rgba(100,181,246,.3)"><div class="def-term">🔬 Physical Property ⭐</div><div class="def-text">Observed/measured <strong>without forming a new substance</strong>. E.g., MP, BP, density, colour, state, conductivity.</div></div>
+    <div class="def-card" style="border-color:rgba(255,107,107,.3)"><div class="def-term">⚗️ Chemical Property ⭐</div><div class="def-text">Describes <strong>how a substance reacts to form new substances</strong>. E.g., reactivity with water/acids, displacement, flammability.</div></div>
+    <div class="def-card"><div class="def-term">🛡️ Shielding Effect ⭐</div><div class="def-text"><strong>Reduction in electrostatic forces of attraction between nucleus and outer electrons</strong> caused by inner shells.</div></div>
+    <div class="def-card"><div class="def-term">🔗 Metallic Bond ⭐</div><div class="def-text"><strong>Electrostatic forces of attraction between positive metal ions (cations) and a sea of delocalised electrons.</strong></div></div>
+    <div class="def-card"><div class="def-term">💨 Intermolecular Forces of Attraction ⭐</div><div class="def-text"><strong>Weak forces between molecules.</strong> For non-polar: <strong>London dispersion forces</strong>. More electrons = stronger forces = higher BP.</div></div>
+    <div class="def-card"><div class="def-term">⚖️ Displacement Reaction ⭐</div><div class="def-text">A <strong>more reactive element takes the place of a less reactive one</strong> in a compound.</div></div>
+    <div class="def-card"><div class="def-term">🔄 Redox ⭐</div><div class="def-text"><strong>OIL RIG:</strong> Oxidation Is Loss, Reduction Is Gain of electrons.</div></div>
+    <div class="def-card"><div class="def-term">⚗️ Catalyst ⭐</div><div class="def-text">Increases rate without being chemically changed. Provides <strong>alternative pathway with lower activation energy</strong>.</div></div>
+  </div>
+</section>
+
+<!-- TRENDS -->
+<section id="trends" class="reveal">
+  <div class="section-header"><h2>📊 Periodic <span class="accent-gold">Trends</span></h2></div>
+  <div class="trend-box"><div class="trend-grid">
+    <div style="grid-row:1;grid-column:1;display:flex;align-items:center;justify-content:center;font-size:1rem">📐</div>
+    <div style="grid-row:1;grid-column:2;padding:0 12px;display:flex;align-items:center"><div style="width:100%;text-align:center"><div style="font-size:.68rem;font-weight:700;color:var(--ha);margin-bottom:2px">ACROSS PERIOD →</div><div style="height:3px;background:linear-gradient(90deg,var(--am),var(--ha));border-radius:2px"></div></div></div>
+    <div style="grid-row:2;grid-column:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0"><div style="font-size:.64rem;font-weight:700;color:var(--ng);writing-mode:vertical-lr;transform:rotate(180deg)">DOWN GROUP ↓</div><div style="width:3px;height:75%;background:linear-gradient(180deg,var(--am),var(--ng));border-radius:2px;margin:4px auto"></div></div>
+    <div class="trend-content">
+      <div class="trend-item"><div class="label">⚛️ Atomic Radius</div><div class="desc">Across→Decreases | Down↓Increases</div></div>
+      <div class="trend-item"><div class="label">⚡ Ionisation Energy</div><div class="desc">Across→Increases | Down↓Decreases</div></div>
+      <div class="trend-item"><div class="label">🔥 Metal Reactivity</div><div class="desc">Down↓Increases (e⁻ lost more readily)</div></div>
+      <div class="trend-item"><div class="label">🧪 Non-metal Reactivity</div><div class="desc">Down↓Decreases (e⁻ gained less readily)</div></div>
+    </div>
+  </div></div>
+</section>
+
+<!-- BONDING -->
+<section id="bonding" class="reveal">
+  <div class="section-header"><h2>🔬 Bonding <span class="accent-gold">Diagrams</span></h2></div>
+  <div class="diagram-container">
+    <h3 style="color:var(--am)">🔗 Metallic Bonding</h3>
+    <svg viewBox="0 0 500 280" xmlns="http://www.w3.org/2000/svg" style="max-width:500px">
+      <defs><marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#ffd54f"/></marker><radialGradient id="ig"><stop offset="0%" stop-color="rgba(255,107,107,.3)"/><stop offset="100%" stop-color="rgba(255,107,107,.05)"/></radialGradient></defs>
+      <rect x="10" y="20" width="480" height="190" rx="12" fill="rgba(100,181,246,.06)" stroke="rgba(100,181,246,.25)" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <text x="250" y="38" text-anchor="middle" fill="#64b5f6" font-size="9" font-weight="600" font-family="Inter">SEA OF DELOCALISED ELECTRONS (e⁻)</text>
+      <circle cx="85" cy="90" r="26" fill="url(#ig)" stroke="#ff6b6b" stroke-width="2"/><text x="85" y="94" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="700" font-family="Inter">M⁺</text>
+      <circle cx="195" cy="90" r="26" fill="url(#ig)" stroke="#ff6b6b" stroke-width="2"/><text x="195" y="94" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="700" font-family="Inter">M⁺</text>
+      <circle cx="305" cy="90" r="26" fill="url(#ig)" stroke="#ff6b6b" stroke-width="2"/><text x="305" y="94" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="700" font-family="Inter">M⁺</text>
+      <circle cx="415" cy="90" r="26" fill="url(#ig)" stroke="#ff6b6b" stroke-width="2"/><text x="415" y="94" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="700" font-family="Inter">M⁺</text>
+      <circle cx="140" cy="165" r="26" fill="url(#ig)" stroke="#ff6b6b" stroke-width="2"/><text x="140" y="169" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="700" font-family="Inter">M⁺</text>
+      <circle cx="250" cy="165" r="26" fill="url(#ig)" stroke="#ff6b6b" stroke-width="2"/><text x="250" y="169" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="700" font-family="Inter">M⁺</text>
+      <circle cx="360" cy="165" r="26" fill="url(#ig)" stroke="#ff6b6b" stroke-width="2"/><text x="360" y="169" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="700" font-family="Inter">M⁺</text>
+      <circle cx="140" cy="75" r="4" fill="#64b5f6"/><circle cx="250" cy="62" r="4" fill="#64b5f6"/><circle cx="360" cy="78" r="4" fill="#64b5f6"/><circle cx="50" cy="130" r="4" fill="#64b5f6"/><circle cx="195" cy="132" r="4" fill="#64b5f6"/><circle cx="305" cy="130" r="4" fill="#64b5f6"/><circle cx="440" cy="132" r="4" fill="#64b5f6"/>
+      <line x1="111" y1="87" x2="135" y2="78" stroke="#ffd54f" stroke-width="1.5" marker-end="url(#ah)"/><line x1="221" y1="84" x2="245" y2="66" stroke="#ffd54f" stroke-width="1.5" marker-end="url(#ah)"/>
+      <rect x="55" y="225" width="390" height="42" rx="8" fill="rgba(255,213,79,.08)" stroke="rgba(255,213,79,.2)"/>
+      <text x="250" y="244" text-anchor="middle" fill="#ffd54f" font-size="9" font-weight="700" font-family="Inter">Electrostatic Forces of Attraction between M⁺ and e⁻ = Metallic Bond</text>
+    </svg>
+    <div class="olevel-box"><div class="olevel-hdr">📝 Why do Group 1 MPs decrease ↓?</div><ol><li>M⁺ ionic radius <strong>increases</strong>.</li><li>Delocalised e⁻ <strong>further</strong> from M⁺.</li><li><strong>Electrostatic forces of attraction</strong> become <strong>weaker</strong>.</li><li>Less energy needed → <strong>lower MP</strong>.</li></ol></div>
+  </div>
+  <div class="diagram-container">
+    <h3 style="color:var(--ha)">💨 Intermolecular Forces of Attraction (London Dispersion Forces)</h3>
+    <svg viewBox="0 0 520 260" xmlns="http://www.w3.org/2000/svg" style="max-width:520px">
+      <text x="130" y="18" text-anchor="middle" fill="#64b5f6" font-size="10" font-weight="700" font-family="Inter">F₂ (few e⁻ → weak)</text>
+      <circle cx="110" cy="55" r="16" fill="rgba(100,181,246,.15)" stroke="#64b5f6" stroke-width="1.5"/><text x="110" y="59" text-anchor="middle" fill="#64b5f6" font-size="9" font-weight="600" font-family="Inter">F</text>
+      <circle cx="142" cy="55" r="16" fill="rgba(100,181,246,.15)" stroke="#64b5f6" stroke-width="1.5"/><text x="142" y="59" text-anchor="middle" fill="#64b5f6" font-size="9" font-weight="600" font-family="Inter">F</text>
+      <circle cx="110" cy="108" r="16" fill="rgba(100,181,246,.15)" stroke="#64b5f6" stroke-width="1.5"/><text x="110" y="112" text-anchor="middle" fill="#64b5f6" font-size="9" font-weight="600" font-family="Inter">F</text>
+      <circle cx="142" cy="108" r="16" fill="rgba(100,181,246,.15)" stroke="#64b5f6" stroke-width="1.5"/><text x="142" y="112" text-anchor="middle" fill="#64b5f6" font-size="9" font-weight="600" font-family="Inter">F</text>
+      <line x1="126" y1="71" x2="126" y2="92" stroke="#ce93d8" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="178" y="84" fill="#ce93d8" font-size="7" font-family="Inter">Weak forces</text>
+      <line x1="260" y1="10" x2="260" y2="140" stroke="var(--border)" stroke-width="1" stroke-dasharray="4"/>
+      <text x="390" y="18" text-anchor="middle" fill="#ce93d8" font-size="10" font-weight="700" font-family="Inter">I₂ (many e⁻ → strong)</text>
+      <circle cx="365" cy="55" r="24" fill="rgba(206,147,216,.1)" stroke="#ce93d8" stroke-width="2"/><text x="365" y="60" text-anchor="middle" fill="#ce93d8" font-size="12" font-weight="700" font-family="Inter">I</text>
+      <circle cx="415" cy="55" r="24" fill="rgba(206,147,216,.1)" stroke="#ce93d8" stroke-width="2"/><text x="415" y="60" text-anchor="middle" fill="#ce93d8" font-size="12" font-weight="700" font-family="Inter">I</text>
+      <circle cx="365" cy="120" r="24" fill="rgba(206,147,216,.1)" stroke="#ce93d8" stroke-width="2"/><text x="365" y="125" text-anchor="middle" fill="#ce93d8" font-size="12" font-weight="700" font-family="Inter">I</text>
+      <circle cx="415" cy="120" r="24" fill="rgba(206,147,216,.1)" stroke="#ce93d8" stroke-width="2"/><text x="415" y="125" text-anchor="middle" fill="#ce93d8" font-size="12" font-weight="700" font-family="Inter">I</text>
+      <line x1="390" y1="79" x2="390" y2="96" stroke="#ffd54f" stroke-width="2.5" stroke-dasharray="4 2"/><line x1="380" y1="79" x2="380" y2="96" stroke="#ffd54f" stroke-width="2.5" stroke-dasharray="4 2"/>
+      <text x="452" y="90" fill="#ffd54f" font-size="7" font-weight="700" font-family="Inter">Strong forces</text>
+      <rect x="25" y="160" width="470" height="85" rx="10" fill="rgba(206,147,216,.06)" stroke="rgba(206,147,216,.2)"/>
+      <text x="260" y="180" text-anchor="middle" fill="#ce93d8" font-size="9" font-weight="700" font-family="Inter">More electrons → stronger intermolecular forces of attraction (London dispersion forces)</text>
+      <text x="260" y="200" text-anchor="middle" fill="#e0e4f0" font-size="8" font-family="Inter">Temporary dipoles (δ⁺/δ⁻) form → induce dipoles in neighbours → attraction</text>
+      <text x="260" y="220" text-anchor="middle" fill="#ffd54f" font-size="8.5" font-weight="700" font-family="Inter">Larger molecules = more e⁻ = stronger forces = higher BP down Group 17 &amp; 18</text>
+    </svg>
+  </div>
+</section>
+
+<!-- GROUP 1 -->
+<section id="alkali" class="reveal">
+  <div class="section-header"><h2>🔴 Alkali Metals — <span class="accent-am">Group 1</span></h2></div>
+  <div class="card" style="margin-bottom:14px"><h3 style="color:var(--am)">Physical vs Chemical</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px" class="sg2"><div class="summary-box"><h4><span class="prop-type prop-phys">PHYSICAL</span></h4><ul><li>Soft, shiny, low density, low MP</li><li>MP <strong>decreases</strong> ↓</li><li>Good conductors</li></ul></div><div class="summary-box"><h4><span class="prop-type prop-chem">CHEMICAL</span></h4><ul><li>Reactivity <strong>increases</strong> ↓</li><li>React with water → MOH + H₂</li><li>Form <strong>+1 ions</strong></li></ul></div></div></div>
+  <div class="tabs"><button class="tab-btn active" onclick="showTab(this,'am')">Physical</button><button class="tab-btn" onclick="showTab(this,'am')">Chemical</button><button class="tab-btn" onclick="showTab(this,'am')">Uses</button></div>
+  <div class="tab-panel active" data-section="am"><div class="card"><h3 style="color:var(--am)">MP ↓ Decreases</h3><div class="bar-chart"><div class="bar-col"><div class="bar" style="height:100%;background:var(--am)"></div><div class="bar-label">Li</div><div class="bar-val">181°C</div></div><div class="bar-col"><div class="bar" style="height:54%;background:var(--am)"></div><div class="bar-label">Na</div><div class="bar-val">98°C</div></div><div class="bar-col"><div class="bar" style="height:35%;background:var(--am)"></div><div class="bar-label">K</div><div class="bar-val">63°C</div></div><div class="bar-col"><div class="bar" style="height:22%;background:var(--am)"></div><div class="bar-label">Rb</div><div class="bar-val">39°C</div></div><div class="bar-col"><div class="bar" style="height:15%;background:var(--am)"></div><div class="bar-label">Cs</div><div class="bar-val">28°C</div></div></div></div></div>
+  <div class="tab-panel" data-section="am">
+    <div class="olevel-box"><div class="olevel-hdr">📝 Why does reactivity increase ↓ Group 1?</div><ol><li>More shells → outer e⁻ <strong>further</strong> from nucleus.</li><li><strong>Greater shielding</strong>.</li><li>Weaker <strong>electrostatic forces of attraction</strong>.</li><li>Outer e⁻ <strong>lost more readily</strong> → more reactive.</li></ol></div>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>2Na<sub>(s)</sub> + 2H₂O<sub>(l)</sub> → 2NaOH<sub>(aq)</sub> + H₂<sub>(g)</sub></div>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>2K<sub>(s)</sub> + 2H₂O<sub>(l)</sub> → 2KOH<sub>(aq)</sub> + H₂<sub>(g)</sub></div>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>2Na<sub>(s)</sub> + Cl₂<sub>(g)</sub> → 2NaCl<sub>(s)</sub></div>
+    <div class="key-point"><strong>Flame colours:</strong> Li = crimson 🔴 | Na = golden yellow 🟡 | K = lilac 🟣</div>
+  </div>
+  <div class="tab-panel" data-section="am"><div class="uses-grid"><div class="use-item"><div class="use-icon">🔋</div><strong>Li</strong>Batteries</div><div class="use-item"><div class="use-icon">💡</div><strong>Na</strong>Street lamps</div><div class="use-item"><div class="use-icon">🌱</div><strong>K</strong>Fertilisers</div></div></div>
+</section>
+
+<!-- GROUP 17 -->
+<section id="halogens" class="reveal">
+  <div class="section-header"><h2>🔵 Halogens — <span class="accent-ha">Group 17</span></h2></div>
+  <div class="card" style="margin-bottom:14px"><h3 style="color:var(--ha)">Physical vs Chemical</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px" class="sg2"><div class="summary-box"><h4><span class="prop-type prop-phys">PHYSICAL</span></h4><ul><li>Diatomic, colour darker ↓, BP increases ↓</li><li>Gas→Liquid→Solid ↓</li></ul></div><div class="summary-box"><h4><span class="prop-type prop-chem">CHEMICAL</span></h4><ul><li>Reactivity <strong>decreases</strong> ↓</li><li>Displacement, form −1 ions</li><li>React with H₂ → hydrogen halides</li></ul></div></div></div>
+  <div class="tabs"><button class="tab-btn active" onclick="showTab(this,'ha')">Physical</button><button class="tab-btn" onclick="showTab(this,'ha')">Chemical</button><button class="tab-btn" onclick="showTab(this,'ha')">Displacement</button><button class="tab-btn" onclick="showTab(this,'ha')">H-Halides</button><button class="tab-btn" onclick="showTab(this,'ha')">Uses</button></div>
+  <div class="tab-panel active" data-section="ha">
+    <table class="data-table"><thead><tr><th>Halogen</th><th>Colour</th><th>State</th><th>BP</th></tr></thead><tbody>
+      <tr><td>F₂</td><td style="color:#ffffaa">Pale yellow</td><td>Gas</td><td>−188°C</td></tr>
+      <tr><td>Cl₂</td><td style="color:#a8d8a8">Yellow-green</td><td>Gas</td><td>−34°C</td></tr>
+      <tr><td>Br₂</td><td style="color:#e08850">Red-brown</td><td>Liquid</td><td>59°C</td></tr>
+      <tr><td>I₂</td><td style="color:#c0a0d0">Dark grey/purple vapour</td><td>Solid</td><td>184°C</td></tr>
+    </tbody></table>
+    <div class="key-point"><strong>BP increases ↓</strong> — more electrons → stronger intermolecular forces of attraction (London dispersion forces).</div>
+  </div>
+  <div class="tab-panel" data-section="ha">
+    <div class="olevel-box"><div class="olevel-hdr">📝 Why does reactivity decrease ↓ Group 17?</div><ol><li>More shells → outer shell <strong>further</strong> from nucleus.</li><li><strong>Greater shielding</strong>.</li><li>Weaker <strong>electrostatic forces of attraction</strong> on incoming e⁻.</li><li>e⁻ <strong>gained less readily</strong> → less reactive.</li></ol></div>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>2Fe<sub>(s)</sub> + 3Cl₂<sub>(g)</sub> → 2FeCl₃<sub>(s)</sub></div>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>2Na<sub>(s)</sub> + Cl₂<sub>(g)</sub> → 2NaCl<sub>(s)</sub></div>
+  </div>
+
+  <!-- DISPLACEMENT — with both chemical and ionic equations -->
+  <div class="tab-panel" data-section="ha">
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="color:var(--ha)">⚔️ Halogen Displacement Results</h3>
+      <table class="data-table"><thead><tr><th>Added ↓</th><th>KCl(aq)</th><th>KBr(aq)</th><th>KI(aq)</th></tr></thead><tbody>
+        <tr><td style="font-weight:600;color:var(--ha)">Cl₂</td><td>✗</td><td style="color:var(--am)">✅ Red-brown (Br₂)</td><td style="color:var(--am)">✅ Brown (I₂)</td></tr>
+        <tr><td style="font-weight:600;color:var(--ha)">Br₂</td><td>✗</td><td>✗</td><td style="color:var(--am)">✅ Brown (I₂)</td></tr>
+        <tr><td style="font-weight:600;color:var(--ha)">I₂</td><td>✗</td><td>✗</td><td>✗</td></tr>
+      </tbody></table>
+    </div>
+
+    <h3 style="color:var(--ha);font-size:.9rem;margin:16px 0 8px">Chlorine + Potassium bromide</h3>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>Cl₂<sub>(aq)</sub> + 2KBr<sub>(aq)</sub> → 2KCl<sub>(aq)</sub> + Br₂<sub>(aq)</sub><div class="word-eq">Solution turns <strong>red-brown</strong> (Br₂ displaced)</div></div>
+    <div class="equation ionic"><div class="eq-label">Ionic Equation</div>Cl₂<sub>(aq)</sub> + 2Br⁻<sub>(aq)</sub> → 2Cl⁻<sub>(aq)</sub> + Br₂<sub>(aq)</sub><div class="word-eq">Spectator ions (K⁺) removed — only reacting species shown</div></div>
+
+    <h3 style="color:var(--ha);font-size:.9rem;margin:16px 0 8px">Chlorine + Potassium iodide</h3>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>Cl₂<sub>(aq)</sub> + 2KI<sub>(aq)</sub> → 2KCl<sub>(aq)</sub> + I₂<sub>(aq)</sub><div class="word-eq">Solution turns <strong>brown</strong> (I₂ displaced)</div></div>
+    <div class="equation ionic"><div class="eq-label">Ionic Equation</div>Cl₂<sub>(aq)</sub> + 2I⁻<sub>(aq)</sub> → 2Cl⁻<sub>(aq)</sub> + I₂<sub>(aq)</sub></div>
+
+    <h3 style="color:var(--ha);font-size:.9rem;margin:16px 0 8px">Bromine + Potassium iodide</h3>
+    <div class="equation"><div class="eq-label">Chemical Equation</div>Br₂<sub>(aq)</sub> + 2KI<sub>(aq)</sub> → 2KBr<sub>(aq)</sub> + I₂<sub>(aq)</sub><div class="word-eq">Solution turns <strong>brown</strong> (I₂ displaced)</div></div>
+    <div class="equation ionic"><div class="eq-label">Ionic Equation</div>Br₂<sub>(aq)</sub> + 2I⁻<sub>(aq)</sub> → 2Br⁻<sub>(aq)</sub> + I₂<sub>(aq)</sub></div>
+
+    <div class="card" style="margin-top:14px">
+      <h3 style="color:var(--ha)">Redox Analysis (Half-Equations)</h3>
+      <p style="font-size:.82rem;margin-bottom:8px">Taking Cl₂ + 2KBr as an example:</p>
+      <div class="equation ionic"><div class="eq-label">Reduction (Cl₂ gains e⁻)</div>Cl₂ + 2e⁻ → 2Cl⁻<div class="word-eq">Chlorine is <strong>reduced</strong> — it is the <strong>oxidising agent</strong></div></div>
+      <div class="equation" style="border-left-color:var(--am)"><div class="eq-label">Oxidation (Br⁻ loses e⁻)</div>2Br⁻ → Br₂ + 2e⁻<div class="word-eq">Bromide is <strong>oxidised</strong> — it is the <strong>reducing agent</strong></div></div>
+      <div class="key-point"><strong>OIL RIG:</strong> Oxidation Is Loss. Reduction Is Gain. Cl₂ gains electrons more readily than Br₂ (more reactive).</div>
+    </div>
+  </div>
+
+  <div class="tab-panel" data-section="ha">
+    <table class="data-table"><thead><tr><th>H-Halide</th><th>Acid in Water</th><th>Strength</th><th>H–X Bond Energy</th></tr></thead><tbody>
+      <tr><td>HF</td><td>Hydrofluoric</td><td>Weak</td><td>568 kJ/mol</td></tr>
+      <tr><td>HCl</td><td>Hydrochloric</td><td>Strong</td><td>432</td></tr>
+      <tr><td>HBr</td><td>Hydrobromic</td><td>Strong</td><td>366</td></tr>
+      <tr><td>HI</td><td>Hydroiodic</td><td>Strong</td><td>298</td></tr>
+    </tbody></table>
+    <div class="key-point"><strong>Down ↓:</strong> H–X bond gets longer &amp; weaker → breaks more readily → thermal stability decreases. HF is weak acid (very strong bond doesn't fully dissociate).</div>
+  </div>
+  <div class="tab-panel" data-section="ha"><div class="uses-grid"><div class="use-item"><div class="use-icon">🦷</div><strong>F</strong>Toothpaste</div><div class="use-item"><div class="use-icon">🏊</div><strong>Cl</strong>Water treatment</div><div class="use-item"><div class="use-icon">🔥</div><strong>Br</strong>Flame retardants</div><div class="use-item"><div class="use-icon">🩺</div><strong>I</strong>Antiseptic</div></div></div>
+</section>
+
+<!-- GROUP 18 -->
+<section id="noble" class="reveal">
+  <div class="section-header"><h2>🟣 Noble Gases — <span class="accent-ng">Group 18</span></h2></div>
+  <div class="olevel-box"><div class="olevel-hdr">📝 Why unreactive?</div><ol><li><strong>Full outer electron shell</strong>.</li><li><strong>No tendency</strong> to gain, lose, or share electrons → <strong>inert</strong>.</li></ol></div>
+  <div class="card" style="margin-top:12px"><h3 style="color:var(--ng)">BP ↓ Increases</h3><div class="bar-chart"><div class="bar-col"><div class="bar" style="height:3%;background:var(--ng)"></div><div class="bar-label">He</div><div class="bar-val">−269</div></div><div class="bar-col"><div class="bar" style="height:12%;background:var(--ng)"></div><div class="bar-label">Ne</div><div class="bar-val">−246</div></div><div class="bar-col"><div class="bar" style="height:40%;background:var(--ng)"></div><div class="bar-label">Ar</div><div class="bar-val">−186</div></div><div class="bar-col"><div class="bar" style="height:56%;background:var(--ng)"></div><div class="bar-label">Kr</div><div class="bar-val">−153</div></div><div class="bar-col"><div class="bar" style="height:78%;background:var(--ng)"></div><div class="bar-label">Xe</div><div class="bar-val">−108</div></div></div><div class="key-point">More electrons → stronger <strong>intermolecular forces of attraction (London dispersion forces)</strong>.</div></div>
+  <div class="uses-grid" style="margin-top:10px"><div class="use-item"><div class="use-icon">🎈</div><strong>He</strong>Balloons</div><div class="use-item"><div class="use-icon">💡</div><strong>Ne</strong>Signs</div><div class="use-item"><div class="use-icon">⚙️</div><strong>Ar</strong>Welding</div></div>
+</section>
+
+<!-- TRANSITION -->
+<section id="transition" class="reveal">
+  <div class="section-header"><h2>🟢 Transition Metals — <span class="accent-tm">Gp 3–12</span></h2></div>
+  <div class="card" style="margin-bottom:14px"><h3 style="color:var(--tm)">Physical vs Chemical</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px" class="sg2"><div class="summary-box"><h4><span class="prop-type prop-phys">PHYSICAL</span></h4><ul><li>High MP, density, hard, strong, conductors</li></ul></div><div class="summary-box"><h4><span class="prop-type prop-chem">CHEMICAL</span></h4><ul><li>Less reactive than Gp 1, coloured compounds, catalysts, variable oxidation states</li></ul></div></div></div>
+  <div class="card"><h3 style="color:var(--tm)">Catalysts</h3><table class="data-table"><thead><tr><th>Catalyst</th><th>Process</th></tr></thead><tbody><tr><td>Fe</td><td>Haber Process (N₂ + 3H₂ → 2NH₃)</td></tr><tr><td>MnO₂</td><td>Decomposition of H₂O₂</td></tr><tr><td>Pt</td><td>Catalytic converters</td></tr></tbody></table></div>
+
+  <h3 style="color:var(--tm);font-size:.9rem;margin:16px 0 8px">Metal Displacement Reactions</h3>
+  <div class="equation"><div class="eq-label">Chemical Equation</div>Fe<sub>(s)</sub> + CuSO₄<sub>(aq)</sub> → FeSO₄<sub>(aq)</sub> + Cu<sub>(s)</sub><div class="word-eq">Iron displaces copper (more reactive)</div></div>
+  <div class="equation ionic"><div class="eq-label">Ionic Equation</div>Fe<sub>(s)</sub> + Cu²⁺<sub>(aq)</sub> → Fe²⁺<sub>(aq)</sub> + Cu<sub>(s)</sub><div class="word-eq">SO₄²⁻ is the spectator ion — removed from ionic equation</div></div>
+
+  <div class="equation"><div class="eq-label">Chemical Equation</div>Zn<sub>(s)</sub> + CuSO₄<sub>(aq)</sub> → ZnSO₄<sub>(aq)</sub> + Cu<sub>(s)</sub></div>
+  <div class="equation ionic"><div class="eq-label">Ionic Equation</div>Zn<sub>(s)</sub> + Cu²⁺<sub>(aq)</sub> → Zn²⁺<sub>(aq)</sub> + Cu<sub>(s)</sub></div>
+
+  <div class="equation"><div class="eq-label">Chemical Equation</div>Mg<sub>(s)</sub> + FeSO₄<sub>(aq)</sub> → MgSO₄<sub>(aq)</sub> + Fe<sub>(s)</sub></div>
+  <div class="equation ionic"><div class="eq-label">Ionic Equation</div>Mg<sub>(s)</sub> + Fe²⁺<sub>(aq)</sub> → Mg²⁺<sub>(aq)</sub> + Fe<sub>(s)</sub></div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="color:var(--tm)">Redox in Metal Displacement</h3>
+    <p style="font-size:.82rem;margin-bottom:8px">Fe + Cu²⁺ → Fe²⁺ + Cu:</p>
+    <div class="equation" style="border-left-color:var(--am)"><div class="eq-label">Oxidation</div>Fe → Fe²⁺ + 2e⁻<div class="word-eq">Iron <strong>loses</strong> electrons → oxidised (reducing agent)</div></div>
+    <div class="equation ionic"><div class="eq-label">Reduction</div>Cu²⁺ + 2e⁻ → Cu<div class="word-eq">Copper(II) <strong>gains</strong> electrons → reduced (oxidising agent)</div></div>
+  </div>
+</section>
+
+<!-- VIDEOS -->
+<section id="videos" class="reveal">
+  <div class="section-header"><h2>🎬 <span class="accent-gold">Videos</span></h2></div>
+  <div class="video-grid">
+    <div class="video-card"><div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/m55kgyApYrY?rel=0" title="Alkali Metals" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div><div class="video-info"><h4>🔴 Alkali Metals in Water</h4><a class="yt-btn" href="https://www.youtube.com/watch?v=m55kgyApYrY" target="_blank" rel="noopener">▶ YouTube</a></div></div>
+    <div class="video-card"><div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/uixxJtJPVXk?rel=0" title="Group 1" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div><div class="video-info"><h4>🔴 Group 1 Explained</h4><a class="yt-btn" href="https://www.youtube.com/watch?v=uixxJtJPVXk" target="_blank" rel="noopener">▶ YouTube</a></div></div>
+    <div class="video-card"><div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/HuPZbk8Jmjk?rel=0" title="Halogen Displacement" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div><div class="video-info"><h4>🔵 Halogen Displacement</h4><a class="yt-btn" href="https://www.youtube.com/watch?v=HuPZbk8Jmjk" target="_blank" rel="noopener">▶ YouTube</a></div></div>
+    <div class="video-card"><div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/yP0U5rGWqdg?rel=0" title="Halogens" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div><div class="video-info"><h4>🔵 Group 17 Properties</h4><a class="yt-btn" href="https://www.youtube.com/watch?v=yP0U5rGWqdg" target="_blank" rel="noopener">▶ YouTube</a></div></div>
+    <div class="video-card"><div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/GtPdAGzVNIY?rel=0" title="Noble Gases" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div><div class="video-info"><h4>🟣 Noble Gases</h4><a class="yt-btn" href="https://www.youtube.com/watch?v=GtPdAGzVNIY" target="_blank" rel="noopener">▶ YouTube</a></div></div>
+    <div class="video-card"><div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/8VLzPm5WNXY?rel=0" title="Metal Displacement" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div><div class="video-info"><h4>🟢 Metal Displacement</h4><a class="yt-btn" href="https://www.youtube.com/watch?v=8VLzPm5WNXY" target="_blank" rel="noopener">▶ YouTube</a></div></div>
+  </div>
+</section>
+
+<!-- BUILT-IN QUIZ -->
+<section id="quiz" class="reveal">
+  <div class="section-header"><h2>📝 Practice <span class="accent-gold">Quiz</span></h2><p>20 cross-chapter questions (redox, moles, rate, reactivity).</p></div>
+  <div class="quiz-container" id="quizContainer"></div>
+</section>
+
+<!-- EXTRA PRACTICE WORKSHEETS -->
+<section id="worksheets" class="reveal">
+  <div class="section-header">
+    <h2>📄 Extra <span class="accent-gold">Practice Worksheets</span></h2>
+    <p>Additional practice sets loaded from the question bank. Select a worksheet to begin.</p>
+  </div>
+
+  <!-- ADMIN CONFIG — hidden by default, only visible with ?admin=1 in URL -->
+  <div class="ws-admin" id="wsAdmin">
+    <h3>🔧 Admin: Worksheet Source Configuration</h3>
+    <div class="ws-row">
+      <div><label>GitHub Username</label><input class="ws-input" id="wsUser" placeholder="myusername"></div>
+      <div><label>Repository</label><input class="ws-input" id="wsRepo" placeholder="chemistry-worksheets"></div>
+      <div><label>Branch</label><input class="ws-input" id="wsBranch" value="main" placeholder="main"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+      <button class="ws-btn ws-btn-primary" onclick="saveConfig()">💾 Save &amp; Reload</button>
+      <button class="ws-btn ws-btn-secondary" onclick="loadDirectUrl()">📥 Load URL</button>
+    </div>
+    <input class="ws-input" id="wsDirectUrl" placeholder="Direct JSON URL..." style="margin-top:8px">
+    <textarea class="ws-input" id="wsPasteArea" rows="3" placeholder="Or paste JSON..." style="font-family:monospace;font-size:.72rem;resize:vertical"></textarea>
+    <button class="ws-btn ws-btn-primary" onclick="loadPastedJson()">📋 Load Pasted</button>
+    <div class="ws-status" id="wsStatus"></div>
+  </div>
+
+  <!-- WORKSHEET LIST — visible to all users -->
+  <div id="wsBrowser">
+    <div class="ws-loading" id="wsLoading">⏳ Loading worksheets...</div>
+  </div>
+
+  <!-- WORKSHEET QUIZ AREA -->
+  <div id="wsQuizArea" style="display:none">
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="ws-btn ws-btn-secondary" onclick="backToList()">← Back to Worksheets</button>
+      <div id="wsQuizTitle" style="font-size:.95rem;font-weight:700"></div>
+    </div>
+    <div class="quiz-container" id="wsQuizContainer"></div>
+  </div>
+</section>
+
+<footer><p>⚛ Periodic Table Explorer — O-Level Chemistry 6092</p></footer>
+
+<script>
+/* ═══ TABLE ═══ */
+const EL=[[1,"H","Hydrogen",1,1,"nm"],[2,"He","Helium",1,18,"ng"],[3,"Li","Lithium",2,1,"am"],[4,"Be","Beryllium",2,2,"ae"],[5,"B","Boron",2,13,"ml"],[6,"C","Carbon",2,14,"nm"],[7,"N","Nitrogen",2,15,"nm"],[8,"O","Oxygen",2,16,"nm"],[9,"F","Fluorine",2,17,"ha"],[10,"Ne","Neon",2,18,"ng"],[11,"Na","Sodium",3,1,"am"],[12,"Mg","Magnesium",3,2,"ae"],[13,"Al","Aluminium",3,13,"pt"],[14,"Si","Silicon",3,14,"ml"],[15,"P","Phosphorus",3,15,"nm"],[16,"S","Sulfur",3,16,"nm"],[17,"Cl","Chlorine",3,17,"ha"],[18,"Ar","Argon",3,18,"ng"],[19,"K","Potassium",4,1,"am"],[20,"Ca","Calcium",4,2,"ae"],[21,"Sc","Scandium",4,3,"tm"],[22,"Ti","Titanium",4,4,"tm"],[23,"V","Vanadium",4,5,"tm"],[24,"Cr","Chromium",4,6,"tm"],[25,"Mn","Manganese",4,7,"tm"],[26,"Fe","Iron",4,8,"tm"],[27,"Co","Cobalt",4,9,"tm"],[28,"Ni","Nickel",4,10,"tm"],[29,"Cu","Copper",4,11,"tm"],[30,"Zn","Zinc",4,12,"tm"],[31,"Ga","Gallium",4,13,"pt"],[32,"Ge","Germanium",4,14,"ml"],[33,"As","Arsenic",4,15,"ml"],[34,"Se","Selenium",4,16,"nm"],[35,"Br","Bromine",4,17,"ha"],[36,"Kr","Krypton",4,18,"ng"],[37,"Rb","Rubidium",5,1,"am"],[38,"Sr","Strontium",5,2,"ae"],[39,"Y","Yttrium",5,3,"tm"],[40,"Zr","Zirconium",5,4,"tm"],[41,"Nb","Niobium",5,5,"tm"],[42,"Mo","Molybdenum",5,6,"tm"],[43,"Tc","Technetium",5,7,"tm"],[44,"Ru","Ruthenium",5,8,"tm"],[45,"Rh","Rhodium",5,9,"tm"],[46,"Pd","Palladium",5,10,"tm"],[47,"Ag","Silver",5,11,"tm"],[48,"Cd","Cadmium",5,12,"tm"],[49,"In","Indium",5,13,"pt"],[50,"Sn","Tin",5,14,"pt"],[51,"Sb","Antimony",5,15,"ml"],[52,"Te","Tellurium",5,16,"ml"],[53,"I","Iodine",5,17,"ha"],[54,"Xe","Xenon",5,18,"ng"],[55,"Cs","Caesium",6,1,"am"],[56,"Ba","Barium",6,2,"ae"],[72,"Hf","Hafnium",6,4,"tm"],[73,"Ta","Tantalum",6,5,"tm"],[74,"W","Tungsten",6,6,"tm"],[75,"Re","Rhenium",6,7,"tm"],[76,"Os","Osmium",6,8,"tm"],[77,"Ir","Iridium",6,9,"tm"],[78,"Pt","Platinum",6,10,"tm"],[79,"Au","Gold",6,11,"tm"],[80,"Hg","Mercury",6,12,"tm"],[81,"Tl","Thallium",6,13,"pt"],[82,"Pb","Lead",6,14,"pt"],[83,"Bi","Bismuth",6,15,"pt"],[84,"Po","Polonium",6,16,"pt"],[85,"At","Astatine",6,17,"ha"],[86,"Rn","Radon",6,18,"ng"],[87,"Fr","Francium",7,1,"am"],[88,"Ra","Radium",7,2,"ae"],[104,"Rf","Rutherfordium",7,4,"tm"],[105,"Db","Dubnium",7,5,"tm"],[106,"Sg","Seaborgium",7,6,"tm"],[107,"Bh","Bohrium",7,7,"tm"],[108,"Hs","Hassium",7,8,"tm"],[109,"Mt","Meitnerium",7,9,"un"],[110,"Ds","Darmstadtium",7,10,"un"],[111,"Rg","Roentgenium",7,11,"un"],[112,"Cn","Copernicium",7,12,"un"],[113,"Nh","Nihonium",7,13,"un"],[114,"Fl","Flerovium",7,14,"un"],[115,"Mc","Moscovium",7,15,"un"],[116,"Lv","Livermorium",7,16,"un"],[117,"Ts","Tennessine",7,17,"un"],[118,"Og","Oganesson",7,18,"un"],[57,"La","Lanthanum",9,4,"la"],[58,"Ce","Cerium",9,5,"la"],[59,"Pr","Praseodymium",9,6,"la"],[60,"Nd","Neodymium",9,7,"la"],[61,"Pm","Promethium",9,8,"la"],[62,"Sm","Samarium",9,9,"la"],[63,"Eu","Europium",9,10,"la"],[64,"Gd","Gadolinium",9,11,"la"],[65,"Tb","Terbium",9,12,"la"],[66,"Dy","Dysprosium",9,13,"la"],[67,"Ho","Holmium",9,14,"la"],[68,"Er","Erbium",9,15,"la"],[69,"Tm","Thulium",9,16,"la"],[70,"Yb","Ytterbium",9,17,"la"],[71,"Lu","Lutetium",9,18,"la"],[89,"Ac","Actinium",10,4,"ac"],[90,"Th","Thorium",10,5,"ac"],[91,"Pa","Protactinium",10,6,"ac"],[92,"U","Uranium",10,7,"ac"],[93,"Np","Neptunium",10,8,"ac"],[94,"Pu","Plutonium",10,9,"ac"],[95,"Am","Americium",10,10,"ac"],[96,"Cm","Curium",10,11,"ac"],[97,"Bk","Berkelium",10,12,"ac"],[98,"Cf","Californium",10,13,"ac"],[99,"Es","Einsteinium",10,14,"ac"],[100,"Fm","Fermium",10,15,"ac"],[101,"Md","Mendelevium",10,16,"ac"],[102,"No","Nobelium",10,17,"ac"],[103,"Lr","Lawrencium",10,18,"ac"]];
+const CC={am:{bg:"var(--am-bg)",c:"var(--am)",l:"Alkali Metal·Gp1"},ae:{bg:"var(--ae-bg)",c:"var(--ae)",l:"Alkaline Earth·Gp2"},tm:{bg:"var(--tm-bg)",c:"var(--tm)",l:"Transition Metal"},pt:{bg:"var(--pt-bg)",c:"var(--pt)",l:"Post-Transition"},ml:{bg:"var(--ml-bg)",c:"var(--ml)",l:"Metalloid"},nm:{bg:"var(--nm-bg)",c:"var(--nm)",l:"Nonmetal"},ha:{bg:"var(--ha-bg)",c:"var(--ha)",l:"Halogen·Gp17"},ng:{bg:"var(--ng-bg)",c:"var(--ng)",l:"Noble Gas·Gp18"},la:{bg:"var(--la-bg)",c:"var(--la)",l:"Lanthanide"},ac:{bg:"var(--ac-bg)",c:"var(--ac)",l:"Actinide"},un:{bg:"var(--un-bg)",c:"var(--un)",l:"Unknown"}};
+const pt=document.getElementById("ptable");
+EL.forEach(e=>{const[z,s,n,r,c,cat]=e;const cc=CC[cat];const d=document.createElement("div");d.className="el";d.dataset.cat=cat;d.style.cssText=`grid-row:${r};grid-column:${c};background:${cc.bg};color:${cc.c}`;d.innerHTML=`<span class="z">${z}</span><span class="sym">${s}</span><span class="nm">${n}</span>`;d.onclick=()=>showEl(z,s,n,cat);pt.appendChild(d)});
+function addPH(r,c,t,b){const d=document.createElement("div");d.className="el-placeholder";d.style.cssText=`grid-row:${r};grid-column:${c};border-color:${b};color:${b}`;d.textContent=t;pt.appendChild(d)}
+addPH(6,3,"57-71","var(--la)");addPH(7,3,"89-103","var(--ac)");
+const sl=document.createElement("div");sl.style.cssText="grid-column:1/-1;grid-row:8;text-align:center;font-size:.56rem;color:var(--muted);padding:4px 0";sl.textContent="▼ Lanthanides & Actinides";pt.appendChild(sl);
+function filterGroup(g){document.querySelectorAll(".g-btn").forEach(b=>b.classList.toggle("active",b.dataset.g===g));document.querySelectorAll(".el").forEach(el=>el.classList.toggle("dimmed",g!=="all"&&el.dataset.cat!==g))}
+const modal=document.getElementById("elModal");
+function showEl(z,s,n,cat){const c=CC[cat];document.getElementById("modalContent").innerHTML=`<div style="font-size:2.4rem;font-weight:900;color:${c.c}">${s}</div><div style="font-size:1rem;font-weight:600;color:#ccc">${n}</div><div style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Z = ${z}</div><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:600;background:${c.bg};color:${c.c};border:1px solid ${c.c}">${c.l}</span>`;modal.style.display="flex";modal.onclick=closeModal}
+function closeModal(){modal.style.display="none"}
+function showTab(btn,sec){const p=btn.closest("section");const tabs=[...p.querySelectorAll(".tab-btn")];const panels=[...p.querySelectorAll('.tab-panel[data-section="'+sec+'"]')];const i=tabs.indexOf(btn);tabs.forEach(t=>t.classList.remove("active"));btn.classList.add("active");panels.forEach((pl,j)=>pl.classList.toggle("active",j===i))}
+const secs=document.querySelectorAll("section[id],.hero[id]");const nls=document.querySelectorAll(".nav-link");
+window.addEventListener("scroll",()=>{let cur="";secs.forEach(s=>{if(scrollY>=s.offsetTop-100)cur=s.id});if(scrollY<160)cur="table";nls.forEach(l=>l.classList.toggle("active",l.getAttribute("href")==="#"+cur))});
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)e.target.classList.add("visible")})},{threshold:.04});
+document.querySelectorAll(".reveal").forEach(el=>obs.observe(el));
+
+/* ═══ BUILT-IN QUIZ ═══ */
+const QS=[
+{q:"Why does reactivity increase ↓ Group 1?",o:["Heavier atoms","Outer e⁻ further, more shielding → lost more readily","More protons","MP decreases"],a:1,cat:"Group 1",ex:"More shells → outer e⁻ further → greater shielding → weaker electrostatic forces of attraction → e⁻ lost more readily."},
+{q:"Why does reactivity decrease ↓ Group 17?",o:["Bigger atoms","Less colourful","Outer shell further, more shielding → e⁻ gained less readily","Fewer electrons"],a:2,cat:"Group 17",ex:"More shells → incoming e⁻ further → greater shielding → weaker attraction → e⁻ gained less readily."},
+{q:"Cl₂ added to KBr(aq). Observation?",o:["No change","Red-brown colour (Br₂)","Purple","Gas produced"],a:1,cat:"Displacement",ex:"Cl₂(aq) + 2KBr(aq) → 2KCl(aq) + Br₂(aq). Ionic: Cl₂ + 2Br⁻ → 2Cl⁻ + Br₂. Red-brown = Br₂."},
+{q:"Write the ionic equation for: Br₂(aq) + 2KI(aq) → 2KBr(aq) + I₂(aq)",o:["Br₂ + 2K⁺ → 2KBr","Br₂ + 2I⁻ → 2Br⁻ + I₂","2Br⁻ + I₂ → Br₂ + 2I⁻","K⁺ + I⁻ → KI"],a:1,cat:"Displacement",ex:"Remove spectator ions (K⁺). Only species that change: Br₂ + 2I⁻ → 2Br⁻ + I₂."},
+{q:"Why are noble gases unreactive?",o:["Too light","Full outer electron shell","Gases","No electrons"],a:1,cat:"Group 18",ex:"Full outer shell → no tendency to gain, lose, or share electrons."},
+{q:"Which is a CHEMICAL property of Na?",o:["Low density","Soft","Conductor","Reacts with water producing H₂"],a:3,cat:"Properties",ex:"Reacting with water forms new substances → chemical property."},
+{q:"Why do Gp 1 MPs decrease ↓?",o:["Heavier","Electrostatic forces of attraction in metallic bond weaker as M⁺ larger","Fewer e⁻","More reactive"],a:1,cat:"Group 1",ex:"Larger M⁺ → delocalised e⁻ further → weaker metallic bond → lower MP."},
+{q:"In 2Na + Cl₂ → 2NaCl, which is OXIDISED?",o:["Cl₂","NaCl","Na","Neither"],a:2,cat:"⚡ Redox",ex:"Na → Na⁺ + e⁻. Na loses electrons → oxidised (OIL)."},
+{q:"In Cl₂ + 2KBr → 2KCl + Br₂, the REDUCING agent is:",o:["Cl₂","KCl","Br⁻","K⁺"],a:2,cat:"⚡ Redox",ex:"Br⁻ is oxidised (2Br⁻ → Br₂ + 2e⁻). The species oxidised IS the reducing agent."},
+{q:"In Fe + CuSO₄ → FeSO₄ + Cu, which is REDUCED?",o:["Fe²⁺","SO₄²⁻","Cu²⁺","Fe"],a:2,cat:"⚡ Redox",ex:"Cu²⁺ + 2e⁻ → Cu. Gains electrons → reduced (RIG)."},
+{q:"Write the ionic equation for Fe + CuSO₄ → FeSO₄ + Cu",o:["Fe + SO₄²⁻ → FeSO₄","Fe + Cu²⁺ → Fe²⁺ + Cu","Fe²⁺ + Cu → Fe + Cu²⁺","Fe + Cu → FeCu"],a:1,cat:"⚡ Redox",ex:"Remove spectator ion (SO₄²⁻). Ionic equation: Fe(s) + Cu²⁺(aq) → Fe²⁺(aq) + Cu(s)."},
+{q:"4.6 g Na + excess water. Volume H₂ at RTP?<br>2Na + 2H₂O → 2NaOH + H₂ [Na=23, Vm=24dm³]",o:["1.2 dm³","4.8 dm³","2.4 dm³","0.1 dm³"],a:2,cat:"🧮 Moles",ex:"n(Na)=4.6÷23=0.2mol. 2Na→1H₂ so 0.1mol H₂. V=0.1×24=2.4dm³."},
+{q:"2.3 g Na + excess Cl₂. Mass NaCl? [Na=23,Cl=35.5]<br>2Na + Cl₂ → 2NaCl",o:["5.85 g","11.7 g","2.925 g","58.5 g"],a:0,cat:"🧮 Moles",ex:"n(Na)=0.1mol. 2Na→2NaCl(1:1). m=0.1×58.5=5.85g."},
+{q:"0.1 mol K + excess water. Moles KOH?<br>2K + 2H₂O → 2KOH + H₂",o:["0.05","0.2","0.1","0.01"],a:2,cat:"🧮 Moles",ex:"2K→2KOH (1:1). 0.1mol K→0.1mol KOH."},
+{q:"K reacts faster with water than Na because:",o:["K heavier","K lower MP","K's outer e⁻ further, more shielding → lost more readily","K more protons"],a:2,cat:"⏱️ Rate",ex:"More shells → weaker hold on outer e⁻ → lost more readily → faster rate."},
+{q:"A catalyst increases rate by:",o:["Raising temperature","Providing alternative pathway with lower activation energy","Adding reactant","Increasing pressure"],a:1,cat:"⏱️ Rate",ex:"Lower Eₐ → more particles exceed Eₐ → more successful collisions."},
+{q:"Which metal CANNOT displace Cu from CuSO₄(aq)?",o:["Zn","Fe","Mg","Ag"],a:3,cat:"⚔️ Reactivity",ex:"Ag is BELOW Cu in reactivity series → cannot displace it."},
+{q:"Very reactive metals (Na,K) are extracted by:",o:["Heating with carbon","Electrolysis","Filtration","Displacement"],a:1,cat:"⚔️ Reactivity",ex:"Too reactive for carbon reduction → must use electrolysis."},
+{q:"Why do halogen BPs increase ↓ Group 17?",o:["Stronger covalent bonds","More protons","More electrons → stronger intermolecular forces of attraction (London dispersion forces)","More reactive"],a:2,cat:"Group 17",ex:"Larger molecules → more electrons → stronger London forces → more energy needed."},
+{q:"Fe nail in CuSO₄: nail turns red-brown, solution green. The ionic equation is:",o:["Fe + Cu → FeCu","Fe + Cu²⁺ → Fe²⁺ + Cu","Fe²⁺ + Cu → Fe + Cu²⁺","Fe + SO₄²⁻ → FeSO₄"],a:1,cat:"⚔️ Reactivity",ex:"Fe(s) + Cu²⁺(aq) → Fe²⁺(aq) + Cu(s). Red-brown solid = Cu deposited. Green = Fe²⁺ in solution."}
+];
+const QCOL={"Group 1":"var(--am)","Group 17":"var(--ha)","Group 18":"var(--ng)","Displacement":"var(--ha)","Properties":"var(--gold)","⚡ Redox":"#ef5350","🧮 Moles":"#ce93d8","⏱️ Rate":"#4dd0e1","⚔️ Reactivity":"#ffb74d"};
+let qI=0,sc=0,ans=Array(QS.length).fill(false),uA=Array(QS.length).fill(-1);
+function renderQ(){const c=document.getElementById("quizContainer");if(qI>=QS.length){const p=Math.round(sc/QS.length*100);const cl=p>=80?"var(--success)":p>=50?"var(--gold)":"var(--error)";c.innerHTML=`<div class="quiz-results"><div class="score-circle" style="border:4px solid ${cl};color:${cl}">${sc}/${QS.length}<span class="score-label">${p}%</span></div><h3 style="color:${cl}">${p>=80?"🎉 Excellent!":p>=50?"👍 Good effort!":"📖 Keep revising!"}</h3><button class="quiz-btn primary" style="margin-top:10px" onclick="resetQ()">🔄 Retake</button></div>`;return}const q=QS[qI],L=["A","B","C","D"],ia=ans[qI],cc=QCOL[q.cat]||"var(--muted)";c.innerHTML=`<div class="quiz-progress"><span>Q${qI+1}/${QS.length}</span><div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${qI/QS.length*100}%"></div></div><span style="color:var(--success)">${sc}✓</span></div><div class="quiz-card"><div class="q-number">Question ${qI+1}</div><div class="q-cat" style="background:${cc}22;color:${cc};border:1px solid ${cc}44">${q.cat}</div><div class="q-text">${q.q}</div><div class="q-options">${q.o.map((o,i)=>{let cl="q-opt";if(ia){cl+=" locked";if(i===q.a)cl+=" correct";else if(i===uA[qI])cl+=" wrong"}return`<button class="${cl}" onclick="ansQ(${i})" ${ia?"disabled":""}><span class="opt-letter">${L[i]}</span>${o}</button>`}).join("")}</div><div class="q-explanation ${ia?"show":""}">${ia?"💡 "+q.ex:""}</div></div><div class="quiz-nav"><button class="quiz-btn secondary" onclick="qI--;renderQ()" ${qI===0?"disabled":""}>←</button><button class="quiz-btn primary" onclick="qI++;renderQ()">${qI===QS.length-1?"Results →":"Next →"}</button></div>`}
+function ansQ(i){if(ans[qI])return;ans[qI]=true;uA[qI]=i;if(i===QS[qI].a)sc++;renderQ()}
+function resetQ(){qI=0;sc=0;ans.fill(false);uA.fill(-1);renderQ()}
+renderQ();
+
+/* ═══════════════════════════════════════════ */
+/* ═══ WORKSHEET ENGINE ═══ */
+/* ═══════════════════════════════════════════ */
+let wsData=null,wsQI=0,wsSc=0,wsAns=[],wsUA=[];
+const isAdmin=new URLSearchParams(location.search).has("admin");
+
+// Show admin panel only if ?admin is in URL
+if(isAdmin)document.getElementById("wsAdmin").classList.add("show");
+
+function loadSavedConfig(){const s=localStorage.getItem("wsConfig");if(s){try{const c=JSON.parse(s);document.getElementById("wsUser").value=c.user||"";document.getElementById("wsRepo").value=c.repo||"";document.getElementById("wsBranch").value=c.branch||"main"}catch(e){}}}
+loadSavedConfig();
+
+function getBaseUrl(){const u=document.getElementById("wsUser").value.trim(),r=document.getElementById("wsRepo").value.trim(),b=document.getElementById("wsBranch").value.trim()||"main";if(!u||!r)return null;return`https://raw.githubusercontent.com/${u}/${r}/${b}/worksheets/`}
+
+function showStatus(msg,type){const el=document.getElementById("wsStatus");el.className=`ws-status show ${type}`;el.innerHTML=msg}
+
+function saveConfig(){const u=document.getElementById("wsUser").value.trim(),r=document.getElementById("wsRepo").value.trim(),b=document.getElementById("wsBranch").value.trim()||"main";if(!u||!r){showStatus("❌ Enter username & repo","err");return}localStorage.setItem("wsConfig",JSON.stringify({user:u,repo:r,branch:b}));showStatus("💾 Saved! Loading...","info");loadIndex()}
+
+async function loadIndex(){
+  const base=getBaseUrl();
+  const loadEl=document.getElementById("wsLoading");
+  if(!base){loadEl.innerHTML="<p class='ws-empty'>📭 No worksheets configured yet.</p>";return}
+  loadEl.innerHTML="⏳ Loading worksheets...";
+  try{
+    const res=await fetch(base+"index.json");
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const data=await res.json();
+    if(!data.worksheets||!Array.isArray(data.worksheets))throw new Error("Invalid format");
+    if(isAdmin)showStatus(`✅ Found ${data.worksheets.length} worksheet(s)`,"ok");
+    renderWsList(data.worksheets,base);
+    loadEl.innerHTML="";
+  }catch(e){
+    loadEl.innerHTML=`<p class='ws-empty'>📭 No worksheets available right now.</p>`;
+    if(isAdmin)showStatus(`❌ ${e.message}`,"err");
+  }
+}
+
+function renderWsList(ws,base){
+  const dc={Easy:"var(--success)",Medium:"var(--gold)",Hard:"var(--error)"};
+  document.getElementById("wsBrowser").innerHTML=`<div class="ws-list">${ws.map(w=>`<div class="ws-card" onclick="loadWs('${base}${w.file}')"><div class="ws-title">${w.title||w.file}</div><div class="ws-desc">${w.description||""}</div><div class="ws-meta">${w.topic?`<span class="ws-tag topic">${w.topic}</span>`:""} ${w.difficulty?`<span class="ws-tag diff" style="color:${dc[w.difficulty]||"var(--muted)"}">${w.difficulty}</span>`:""} ${w.count?`<span class="ws-tag">${w.count} Qs</span>`:""}</div></div>`).join("")}</div>`;
+}
+
+async function loadWs(url){
+  try{const res=await fetch(url);if(!res.ok)throw new Error(`HTTP ${res.status}`);const data=await res.json();startWs(data)}catch(e){if(isAdmin)showStatus(`❌ ${e.message}`,"err");else alert("Could not load worksheet.")}
+}
+
+function loadDirectUrl(){const url=document.getElementById("wsDirectUrl").value.trim();if(url)loadWs(url)}
+function loadPastedJson(){try{const d=JSON.parse(document.getElementById("wsPasteArea").value.trim());startWs(d)}catch(e){showStatus(`❌ Invalid JSON: ${e.message}`,"err")}}
+
+function startWs(data){
+  if(!data.questions||!data.questions.length){if(isAdmin)showStatus("❌ No questions","err");return}
+  wsData=data;wsQI=0;wsSc=0;wsAns=Array(data.questions.length).fill(false);wsUA=Array(data.questions.length).fill(-1);
+  document.getElementById("wsQuizArea").style.display="block";
+  document.getElementById("wsBrowser").style.display="none";
+  if(isAdmin)document.getElementById("wsAdmin").style.display="none";
+  document.getElementById("wsQuizTitle").innerHTML=`📄 ${data.title||"Worksheet"} <span style="font-size:.68rem;color:var(--muted);font-weight:400">${data.topic?" · "+data.topic:""}</span>`;
+  renderWsQ();
+}
+
+function backToList(){
+  document.getElementById("wsQuizArea").style.display="none";
+  document.getElementById("wsBrowser").style.display="block";
+  if(isAdmin)document.getElementById("wsAdmin").style.display="block";
+  wsData=null;
+}
+
+function renderWsQ(){
+  const c=document.getElementById("wsQuizContainer");if(!wsData)return;const qs=wsData.questions;
+  if(wsQI>=qs.length){const p=Math.round(wsSc/qs.length*100);const cl=p>=80?"var(--success)":p>=50?"var(--gold)":"var(--error)";c.innerHTML=`<div class="quiz-results"><div class="score-circle" style="border:4px solid ${cl};color:${cl}">${wsSc}/${qs.length}<span class="score-label">${p}%</span></div><h3 style="color:${cl}">${p>=80?"🎉 Excellent!":p>=50?"👍 Good effort!":"📖 Keep practising!"}</h3><div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><button class="quiz-btn primary" onclick="wsQI=0;wsSc=0;wsAns.fill(false);wsUA.fill(-1);renderWsQ()">🔄 Retake</button><button class="quiz-btn secondary" onclick="backToList()">← Back</button></div></div>`;return}
+  const q=qs[wsQI],L=["A","B","C","D"],ia=wsAns[wsQI],cc="var(--ha)";
+  c.innerHTML=`<div class="quiz-progress"><span>Q${wsQI+1}/${qs.length}</span><div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${wsQI/qs.length*100}%"></div></div><span style="color:var(--success)">${wsSc}✓</span></div><div class="quiz-card"><div class="q-number">Question ${wsQI+1}</div>${q.cat?`<div class="q-cat" style="background:${cc}22;color:${cc};border:1px solid ${cc}44">${q.cat}</div>`:""}<div class="q-text">${q.q}</div><div class="q-options">${q.o.map((o,i)=>{let cl="q-opt";if(ia){cl+=" locked";if(i===q.a)cl+=" correct";else if(i===wsUA[wsQI])cl+=" wrong"}return`<button class="${cl}" onclick="wsAnsQ(${i})" ${ia?"disabled":""}><span class="opt-letter">${L[i]}</span>${o}</button>`}).join("")}</div><div class="q-explanation ${ia?"show":""}">${ia&&q.ex?"💡 "+q.ex:""}</div></div><div class="quiz-nav"><button class="quiz-btn secondary" onclick="wsQI--;renderWsQ()" ${wsQI===0?"disabled":""}>←</button><button class="quiz-btn primary" onclick="wsQI++;renderWsQ()">${wsQI===qs.length-1?"Results →":"Next →"}</button></div>`}
+function wsAnsQ(i){if(wsAns[wsQI])return;wsAns[wsQI]=true;wsUA[wsQI]=i;if(i===wsData.questions[wsQI].a)wsSc++;renderWsQ()}
+
+// Auto-load on page load
+window.addEventListener("DOMContentLoaded",()=>{const s=localStorage.getItem("wsConfig");if(s){try{const c=JSON.parse(s);if(c.user&&c.repo)loadIndex()}catch(e){}}else{document.getElementById("wsLoading").innerHTML="<p class='ws-empty'>📭 No worksheets available yet.</p>"}});
+</script>
+</body>
+</html>
